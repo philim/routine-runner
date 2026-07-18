@@ -25,11 +25,25 @@ stats, NFC scan loop.
 ```bash
 uv venv .venv && source .venv/bin/activate
 uv pip install -e ".[dev]"
-
-# seed data and run
-python -m scripts.seed_routines          # creates ./data + two kids + routines
-uvicorn app.main:app --reload
 ```
+
+### The `run` CLI
+
+`run.py` is the single entry point; `run.sh` (POSIX) and `run.bat` (Windows)
+wrap it and auto-activate `.venv` if present. It loads `.env` automatically.
+
+```bash
+./run.sh seed             # create ./data + two children + routines
+./run.sh serve            # http://127.0.0.1:8000
+./run.sh serve --reload   # dev mode with auto-reload
+./run.sh serve --host 0.0.0.0 --port 9000
+./run.sh migrate          # apply DB migrations only
+./run.sh info             # show resolved config and paths
+./run.sh test -q          # run the test suite (extra args pass to pytest)
+```
+
+On Windows use `run.bat serve --reload`, etc. Without the wrapper:
+`python run.py serve`.
 
 First boot with no devices serves `/setup`, which prints an enrolment QR. Enrol a
 parent device, then add a kiosk device from **Devices**.
@@ -37,8 +51,8 @@ parent device, then add a kiosk device from **Devices**.
 ### Tests & lint
 
 ```bash
-pytest -q
-ruff check app scripts tests
+./run.sh test -q
+ruff check app scripts tests run.py
 ```
 
 ## Deployment
