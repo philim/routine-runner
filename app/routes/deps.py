@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import NoReturn
 
 from fastapi import Depends, HTTPException, Request
 from fastapi.templating import Jinja2Templates
 
 from app.config import Config
+from app.db import main_db
 from app.models.device import Device
 from app.services import device_service
 
@@ -28,6 +30,13 @@ def _device_from_cookie(request: Request, config: Config) -> Device | None:
     return device_service.validate(config, token)
 
 
+def _reject_or_redirect_to_setup(config: Config, detail: str) -> NoReturn:
+    """Send unclaimed households to /setup; otherwise reject with 403."""
+    if not main_db.has_devices(config.main_db_path):
+        raise HTTPException(status_code=303, headers={"Location": "/setup"})
+    raise HTTPException(status_code=403, detail=detail)
+
+
 def current_device(
     request: Request, config: Config = Depends(get_config)
 ) -> Device | None:
@@ -39,7 +48,7 @@ def require_parent(
 ) -> Device:
     device = _device_from_cookie(request, config)
     if device is None or device.role != "parent":
-        raise HTTPException(status_code=403, detail="parent device required")
+        _reject_or_redirect_to_setup(config, "parent device required")
     return device
 
 
@@ -48,5 +57,5 @@ def require_kiosk(
 ) -> Device:
     device = _device_from_cookie(request, config)
     if device is None or device.role != "kiosk":
-        raise HTTPException(status_code=403, detail="kiosk device required")
+        _reject_or_redirect_to_setup(config, "kiosk device required")
     return device
