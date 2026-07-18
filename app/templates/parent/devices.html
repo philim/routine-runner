@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Devices{% endblock %}
+{% block content %}
+<main class="devices">
+  <h1>Devices</h1>
+  <ul class="device-list">
+    {% for d in devices %}
+    <li>
+      <span class="d-label">{{ d.label }}</span>
+      <span class="d-role">{{ d.role }}</span>
+      <span class="d-state">{{ "revoked" if d.revoked_at else "active" }}</span>
+      {% if not d.revoked_at %}
+      <button class="btn btn-sm btn-danger"
+              hx-post="/devices/{{ d.id }}/revoke" hx-confirm="Revoke {{ d.label }}?"
+              hx-swap="none">Revoke</button>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+
+  <section class="add-device">
+    <h2>Add a device</h2>
+    <button class="btn" hx-post="/devices/enrol" hx-vals='{"role":"parent"}'
+            hx-target="#enrol-qr">Add parent</button>
+    <button class="btn" hx-post="/devices/enrol" hx-vals='{"role":"kiosk"}'
+            hx-target="#enrol-qr">Add kiosk</button>
+    <div id="enrol-qr"></div>
+  </section>
+</main>
+{% endblock %}

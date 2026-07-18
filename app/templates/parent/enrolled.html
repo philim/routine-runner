@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Enrolled{% endblock %}
+{% block content %}
+<main class="setup">
+  <h1>Device enrolled</h1>
+  <p><strong>{{ device.label }}</strong> is now a <strong>{{ device.role }}</strong> device.</p>
+  {% if device.role == "parent" %}
+    <a class="btn" href="/">Go to dashboard</a>
+  {% else %}
+    <a class="btn" href="/kiosk">Open kiosk</a>
+  {% endif %}
+</main>
+{% endblock %}

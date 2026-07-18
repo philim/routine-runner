@@ -216,3 +216,13 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Routine Runner runtime
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Routine Runner: keep migration SQL (overrides Terraform "instance/" rule)
+!app/migrations/instance/
+!app/migrations/instance/*.sql

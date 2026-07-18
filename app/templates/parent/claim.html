@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Add device{% endblock %}
+{% block content %}
+<main class="setup">
+  <h1>Add this device</h1>
+  <form method="post" action="/claim" class="claim-form">
+    <input type="hidden" name="token" value="{{ token }}">
+    <label>Device name <input name="label" required></label>
+    <button class="btn" type="submit">Claim</button>
+  </form>
+</main>
+{% endblock %}

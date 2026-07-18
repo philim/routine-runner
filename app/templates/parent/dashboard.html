@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Routine Runner{% endblock %}
+{% block content %}
+<main class="dashboard">
+  <h1>Routine Runner</h1>
+
+  {% if active_run %}
+    <div class="active-run">
+      <p>A <strong>{{ active_run.state }}</strong> run is in progress.</p>
+      <a class="btn" href="/runs/{{ active_run.id }}/live">Open live view</a>
+    </div>
+  {% else %}
+    <section class="start">
+      <h2>Start a routine</h2>
+      {% for r in routines %}
+      <form hx-post="/runs" hx-target="#start-result" hx-swap="innerHTML">
+        <input type="hidden" name="routine_id" value="{{ r.id }}">
+        <button class="btn btn-lg" type="submit">{{ r.name }}</button>
+      </form>
+      {% endfor %}
+      <div id="start-result"></div>
+    </section>
+  {% endif %}
+
+  <p class="links"><a href="/devices">Devices</a></p>
+</main>
+{% endblock %}

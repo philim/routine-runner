@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Live run{% endblock %}
+{% block content %}
+<main class="run-live"
+      hx-ext="sse" sse-connect="/events/parent"
+      hx-get="/runs/{{ run.id }}/live" hx-trigger="sse:state, every 5s"
+      hx-select="#live-board" hx-target="#live-board" hx-swap="outerHTML">
+  <header class="run-live-head">
+    <h1>{{ routine.name }} — {{ run.state }}</h1>
+    <div class="controls">
+      <button class="btn" hx-post="/runs/{{ run.id }}/pause">Pause / Resume</button>
+      <button class="btn btn-danger" hx-post="/runs/{{ run.id }}/close"
+              hx-confirm="End this run?">End run</button>
+    </div>
+  </header>
+
+  <div id="live-board">
+    {% if mode == "active" %}
+      {% for col in columns %}
+      <section class="live-col">
+        <h2>{{ col.child.name }}</h2>
+        <p>{{ col.done }} / {{ col.total }} steps</p>
+        {% if col.finished %}
+          <p class="done-label">Finished — {{ col.run_child.stars }} ⭐</p>
+        {% elif col.step %}
+          <p class="current">Now: <strong>{{ col.step.title }}</strong></p>
+          <button class="btn btn-sm"
+                  hx-post="/segments/{{ col.segment.id }}/skip"
+                  hx-confirm="Skip this step for {{ col.child.name }}?">Skip step</button>
+        {% endif %}
+      </section>
+      {% endfor %}
+    {% else %}
+      <p>Waiting for check-ins…</p>
+    {% endif %}
+  </div>
+</main>
+{% endblock %}

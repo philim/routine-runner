@@ -1,0 +1,40 @@
+# LAN-only deployment (spec §3, §9.1). Caddy terminates TLS and proxies to the
+# single-worker app. Only outbound access (ACME + Cloudflare API) is needed.
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      RR_DATA_DIR: /data
+      RR_HOUSEHOLD_ID: ${RR_HOUSEHOLD_ID:-home}
+      RR_HOUSEHOLD_NAME: ${RR_HOUSEHOLD_NAME:-Home}
+      RR_JWT_SECRET: ${RR_JWT_SECRET:?set a strong secret}
+      RR_NOTIFY_BACKEND: ${RR_NOTIFY_BACKEND:-ntfy}
+      RR_NTFY_TOPIC: ${RR_NTFY_TOPIC:-}
+    volumes:
+      - app-data:/data
+    restart: unless-stopped
+
+  caddy:
+    build:
+      context: .
+      dockerfile: caddy.Dockerfile
+    ports:
+      - "443:443"
+      - "80:80"
+    environment:
+      CF_API_TOKEN: ${CF_API_TOKEN:?set a scoped Cloudflare token}
+      RR_HOSTNAME: ${RR_HOSTNAME:-routines.philim.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  app-data:
+  caddy-data:
+  caddy-config:

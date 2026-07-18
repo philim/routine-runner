@@ -1,0 +1,54 @@
+{% if mode == "idle" %}
+  <div class="idle">
+    <div class="idle-clock" data-now="{{ now_ms }}">Routine Runner</div>
+    <p class="idle-sub">Waiting for a routine to start…</p>
+  </div>
+{% elif mode == "ready" %}
+  <div class="ready">
+    <h1 class="ready-title">{{ routine.name }} — tap in</h1>
+    <div class="tiles">
+      {% for t in tiles %}
+      <form hx-post="/kiosk/checkin" hx-target="#kiosk-board" hx-swap="innerHTML">
+        <input type="hidden" name="child_id" value="{{ t.id }}">
+        <button type="submit" class="tile" style="--c: {{ t.colour }}">
+          <span class="tile-avatar">{{ t.avatar or t.name[0] }}</span>
+          <span class="tile-name">{{ t.name }}</span>
+        </button>
+      </form>
+      {% endfor %}
+    </div>
+  </div>
+{% elif mode == "active" %}
+  <div class="split">
+    {% for col in columns %}
+    <section class="col" style="--c: {{ col.child.colour }}">
+      <header class="col-head">
+        <span class="col-bar"></span>
+        <span class="col-name">{{ col.child.name }}</span>
+      </header>
+      {% if col.finished %}
+        <div class="waiting"><span class="waiting-mark">✓</span><p>All done</p></div>
+      {% elif col.segment and col.step %}
+        <div class="step">
+          <div class="step-icon">{{ col.step.icon or "•" }}</div>
+          <div class="step-title">{{ col.step.title }}</div>
+          <div class="timer" data-started="{{ col.segment.first_started_at }}"
+               data-mode="{{ col.child.display_mode }}">0:00</div>
+          <div class="dots">
+            {% for i in range(col.total) %}
+              <span class="dot {{ 'on' if i < col.done else '' }}"></span>
+            {% endfor %}
+          </div>
+        </div>
+        <form hx-post="/kiosk/complete" hx-target="#kiosk-board" hx-swap="innerHTML" class="done-form">
+          <input type="hidden" name="child_id" value="{{ col.child.id }}">
+          <input type="hidden" name="segment_id" value="{{ col.segment.id }}">
+          <button type="submit" class="done-btn">DONE</button>
+        </form>
+      {% else %}
+        <div class="waiting"><p>…</p></div>
+      {% endif %}
+    </section>
+    {% endfor %}
+  </div>
+{% endif %}

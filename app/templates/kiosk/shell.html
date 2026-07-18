@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Routine Runner — Kiosk{% endblock %}
+{% block body_class %}kiosk{% endblock %}
+{% block content %}
+<div id="kiosk-root"
+     hx-ext="sse"
+     sse-connect="/events/kiosk"
+     hx-get="/kiosk/state"
+     hx-trigger="sse:state, every 3s"
+     hx-target="#kiosk-board"
+     hx-swap="innerHTML">
+  <div id="kiosk-board">
+    {% include "kiosk/board.html" %}
+  </div>
+</div>
+<script src="/static/js/kiosk.js"></script>
+{% endblock %}

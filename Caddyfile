@@ -1,0 +1,8 @@
+# Reverse proxy + automatic TLS via Cloudflare DNS-01 (spec §9.1).
+# No inbound ports are opened; issuance proves domain control over DNS.
+{$RR_HOSTNAME:routines.philim.com} {
+    tls {
+        dns cloudflare {env.CF_API_TOKEN}
+    }
+    reverse_proxy app:8000
+}
