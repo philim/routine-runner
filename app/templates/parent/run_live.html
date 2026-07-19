@@ -22,6 +22,14 @@
         <p>{{ col.done }} / {{ col.total }} steps</p>
         {% if col.finished %}
           <p class="done-label">Finished — {{ col.run_child.stars }} ⭐</p>
+        {% elif col.segment and col.segment.state == "gate_open" %}
+          <p class="current gate">Check: <strong>{{ col.step.title }}</strong></p>
+          <form hx-post="/gates/{{ col.segment.id }}/approve" hx-swap="none" style="display:inline">
+            <input type="hidden" name="quality_stars" value="2">
+            <button class="btn btn-sm" type="submit">Approve</button>
+          </form>
+          <button class="btn btn-sm btn-danger"
+                  hx-post="/gates/{{ col.segment.id }}/reject" hx-swap="none">Reject</button>
         {% elif col.step %}
           <p class="current">Now: <strong>{{ col.step.title }}</strong></p>
           <button class="btn btn-sm"

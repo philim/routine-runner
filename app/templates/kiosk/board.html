@@ -28,12 +28,31 @@
       </header>
       {% if col.finished %}
         <div class="waiting"><span class="waiting-mark">✓</span><p>All done</p></div>
+      {% elif col.segment and col.segment.state == "gate_open" %}
+        <div class="gate-wait">
+          <div class="gate-icon">🔎</div>
+          <div class="step-title">{{ col.step.title }}</div>
+          <p class="gate-sub">Waiting for a grown-up…</p>
+          <form hx-post="/kiosk/gate-nudge" hx-swap="none">
+            <input type="hidden" name="segment_id" value="{{ col.segment.id }}">
+            <button type="submit" class="btn ask-again">Ask again</button>
+          </form>
+        </div>
       {% elif col.segment and col.step %}
         <div class="step">
           <div class="step-icon">{{ col.step.icon or "•" }}</div>
           <div class="step-title">{{ col.step.title }}</div>
-          <div class="timer" data-started="{{ col.segment.first_started_at }}"
-               data-mode="{{ col.child.display_mode }}">0:00</div>
+          <div class="ring-wrap">
+            <svg class="ring" viewBox="0 0 120 120"
+                 data-started="{{ col.segment.first_started_at }}"
+                 data-par="{{ col.segment.par_seconds or 0 }}"
+                 data-mode="{{ col.child.display_mode }}">
+              <circle class="ring-track" cx="60" cy="60" r="52"></circle>
+              <circle class="ring-arc" cx="60" cy="60" r="52"></circle>
+              <text class="ring-text" x="60" y="60" text-anchor="middle"
+                    dominant-baseline="central">0:00</text>
+            </svg>
+          </div>
           <div class="dots">
             {% for i in range(col.total) %}
               <span class="dot {{ 'on' if i < col.done else '' }}"></span>

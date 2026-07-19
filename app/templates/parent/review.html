@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Checks{% endblock %}
+{% block content %}
+<main class="review"
+      hx-ext="sse" sse-connect="/events/parent"
+      hx-get="/gates" hx-trigger="sse:state, every 5s"
+      hx-select="#gate-list" hx-target="#gate-list" hx-swap="outerHTML">
+  <h1>Checks waiting</h1>
+  <div id="gate-list">
+    {% if not gates %}
+      <p class="empty">No checks waiting.</p>
+    {% endif %}
+    {% for g in gates %}
+    <section class="gate-card">
+      <h2>{{ g.child_name }}</h2>
+      <p class="gate-step">{{ g.step_title }}</p>
+      <form hx-post="/gates/{{ g.id }}/approve" hx-swap="none" class="gate-actions">
+        <label>Quality
+          <select name="quality_stars">
+            <option value="3">⭐⭐⭐</option>
+            <option value="2">⭐⭐</option>
+            <option value="1">⭐</option>
+            <option value="0">—</option>
+          </select>
+        </label>
+        <button class="btn" type="submit">Approve</button>
+      </form>
+      <form hx-post="/gates/{{ g.id }}/reject" hx-swap="none">
+        <button class="btn btn-danger" type="submit">Reject — redo</button>
+      </form>
+    </section>
+    {% endfor %}
+  </div>
+</main>
+{% endblock %}

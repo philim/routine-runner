@@ -12,12 +12,27 @@ from fastapi import APIRouter, Depends, Form, Request
 
 from app.config import Config
 from app.db.instance_db import instance_conn
+from app.jobs import scheduler as scheduler_job
 from app.models.device import Device
 from app.routes.deps import get_config, require_kiosk, templates
-from app.services import clock, routine_service, run_service
+from app.services import (
+    clock,
+    notify_service,
+    routine_service,
+    run_service,
+    verification_service,
+)
 from app.services.event_bus import Event, bus
 
 router = APIRouter()
+
+
+def _on_gate_opened(request: Request, config: Config, segment) -> None:
+    """Notify parents and start the escalation ladder when a gate opens (§6.4.1)."""
+    notify_service.notify(config, "Check needed", "A verification is waiting.")
+    bus.publish("parent", Event(name="state", data="review"))
+    scheduler = getattr(request.app.state, "scheduler", None)
+    scheduler_job.schedule_gate_escalation(scheduler, config, segment.id)
 
 
 def _kiosk_channel() -> str:
@@ -147,11 +162,32 @@ def complete(
             # idempotent: ignore replays of an already-closed segment (§8.3)
             if seg is not None and seg.state == "active":
                 at = _sanitise_client_ts(client_ts, seg.first_started_at)
-                run_service.complete_segment(conn, run.id, child_id, segment_id, at)
+                nxt = run_service.complete_segment(conn, run.id, child_id, segment_id, at)
+                if nxt is not None and nxt.state == "gate_open":
+                    _on_gate_opened(request, config, nxt)
         ctx = build_state(conn, config)
     ctx["request"] = request
     _publish_kiosk_update(config)
     return templates.TemplateResponse(ctx["request"], "kiosk/board.html", ctx)
+
+
+@router.post("/kiosk/gate-nudge")
+def gate_nudge(
+    segment_id: str = Form(...),
+    device: Device = Depends(require_kiosk),
+    config: Config = Depends(get_config),
+):
+    """Child taps 'Ask again' — re-notify parents, rate-limited to once/30s (§6.4.1)."""
+    with instance_conn(config) as conn:
+        if verification_service.can_nudge(conn, segment_id):
+            verification_service.record_nudge(conn, segment_id)
+            allowed = True
+        else:
+            allowed = False
+    if allowed:
+        notify_service.notify(config, "Reminder", "A child is asking for a check.",
+                              priority="high")
+    return {"ok": True, "sent": allowed}
 
 
 @router.post("/kiosk/heartbeat")

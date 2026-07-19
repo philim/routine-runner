@@ -9,7 +9,7 @@ from app.db.instance_db import instance_conn
 from app.models.device import Device
 from app.routes.deps import get_config, require_parent, templates
 from app.routes.kiosk import build_state
-from app.services import routine_service, run_service
+from app.services import par_service, routine_service, run_service, verification_service
 from app.services.event_bus import Event, bus
 
 router = APIRouter()
@@ -101,4 +101,88 @@ def skip(
     with instance_conn(config) as conn:
         run_service.skip_segment(conn, segment_id)
     bus.publish("kiosk", Event(name="state", data="update"))
+    return {"ok": True}
+
+
+# --- gates (spec §6.4, §11) -------------------------------------------------
+
+@router.get("/gates")
+def gates(
+    request: Request,
+    parent: Device = Depends(require_parent),
+    config: Config = Depends(get_config),
+):
+    with instance_conn(config) as conn:
+        open_gates = verification_service.open_gates(conn)
+    return templates.TemplateResponse(
+        request, "parent/review.html", {"gates": open_gates}
+    )
+
+
+@router.post("/gates/{segment_id}/approve")
+def approve_gate(
+    segment_id: str,
+    quality_stars: int = Form(default=0),
+    note: str | None = Form(default=None),
+    parent: Device = Depends(require_parent),
+    config: Config = Depends(get_config),
+):
+    with instance_conn(config) as conn:
+        verification_service.approve(conn, segment_id, quality_stars, note, parent.id)
+    bus.publish("kiosk", Event(name="state", data="update"))
+    return {"ok": True}
+
+
+@router.post("/gates/{segment_id}/reject")
+def reject_gate(
+    segment_id: str,
+    note: str | None = Form(default=None),
+    parent: Device = Depends(require_parent),
+    config: Config = Depends(get_config),
+):
+    with instance_conn(config) as conn:
+        verification_service.reject(conn, segment_id, note, parent.id)
+    bus.publish("kiosk", Event(name="state", data="update"))
+    return {"ok": True}
+
+
+# --- pars (spec §5.4, §11, §12) ---------------------------------------------
+
+@router.get("/pars")
+def pars(
+    request: Request,
+    parent: Device = Depends(require_parent),
+    config: Config = Depends(get_config),
+):
+    with instance_conn(config) as conn:
+        rows = conn.execute(
+            "SELECT p.*, c.name AS child_name, s.title AS step_title "
+            "FROM pars p JOIN children c ON c.id = p.child_id "
+            "JOIN steps s ON s.id = p.step_id "
+            "WHERE p.superseded_at IS NULL ORDER BY c.name, s.position"
+        ).fetchall()
+        current = [dict(r) for r in rows]
+    return templates.TemplateResponse(request, "parent/pars.html", {"pars": current})
+
+
+@router.post("/pars/{par_id}/freeze")
+def freeze_par(
+    par_id: str,
+    parent: Device = Depends(require_parent),
+    config: Config = Depends(get_config),
+):
+    with instance_conn(config) as conn:
+        par_service.freeze(conn, par_id)
+    return {"ok": True}
+
+
+@router.post("/pars/reset")
+def reset_par(
+    child_id: str = Form(...),
+    step_id: str = Form(...),
+    parent: Device = Depends(require_parent),
+    config: Config = Depends(get_config),
+):
+    with instance_conn(config) as conn:
+        par_service.reset(conn, child_id, step_id)
     return {"ok": True}

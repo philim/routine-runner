@@ -14,10 +14,10 @@ def _seg_by_pos(conn, run_id, child_id, pos):
     return row
 
 
-def test_no_untimed_gap_between_segments(seeded, morning_routine_id, children):
+def test_no_untimed_gap_between_segments(seeded, bedtime_routine_id, children):
     child = children[0]["id"]
     with instance_conn(seeded) as conn:
-        run = run_service.open_run(conn, morning_routine_id, "parent1")
+        run = run_service.open_run(conn, bedtime_routine_id, "parent1")
         seg1 = run_service.check_in(conn, run.id, child)
         # complete every segment in order; assert each next starts exactly when prev ended
         cur = seg1
@@ -33,14 +33,14 @@ def test_no_untimed_gap_between_segments(seeded, morning_routine_id, children):
                     "next segment must start the instant the previous ended (§5.1)"
                 )
             cur = nxt
-        # all four morning steps were visited
-        assert prev_positions == [0, 1, 2, 3]
+        # all three bedtime steps were visited
+        assert prev_positions == [0, 1, 2]
 
 
-def test_track_and_run_complete_on_last_done(seeded, morning_routine_id, children):
+def test_track_and_run_complete_on_last_done(seeded, bedtime_routine_id, children):
     child = children[0]["id"]
     with instance_conn(seeded) as conn:
-        run = run_service.open_run(conn, morning_routine_id, "p")
+        run = run_service.open_run(conn, bedtime_routine_id, "p")
         seg = run_service.check_in(conn, run.id, child)
         cur = seg
         while cur is not None:
@@ -51,16 +51,20 @@ def test_track_and_run_complete_on_last_done(seeded, morning_routine_id, childre
         assert run_service.get_run(conn, run.id).state == "closed"
 
 
-def test_participation_stars_awarded_run1(seeded, morning_routine_id, children):
+def test_participation_stars_awarded_run1(seeded, bedtime_routine_id, children):
     child = children[0]["id"]
     with instance_conn(seeded) as conn:
-        run = run_service.open_run(conn, morning_routine_id, "p")
+        run = run_service.open_run(conn, bedtime_routine_id, "p")
         seg = run_service.check_in(conn, run.id, child)
         cur = seg
         while cur is not None:
             cur = run_service.complete_segment(conn, run.id, child, cur.id)
-        rc = run_service.run_children(conn, run.id)[0]
-        assert rc.stars == 4  # one participation star per completed step
+        # one participation star per completed step (segment-level, before bonuses)
+        seg_star_sum = conn.execute(
+            "SELECT COALESCE(SUM(stars),0) s FROM segments WHERE run_id=? AND child_id=?",
+            (run.id, child),
+        ).fetchone()["s"]
+        assert seg_star_sum == 3
 
 
 def test_two_tracks_independent(seeded, morning_routine_id, children):

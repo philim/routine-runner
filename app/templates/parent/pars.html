@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Pars{% endblock %}
+{% block content %}
+<main class="pars">
+  <h1>Current pars</h1>
+  <p class="hint">Par is derived from each child's own history — not set by hand
+    (§5.4). You can freeze a par or reset it when the real world changed.</p>
+  <table class="par-table">
+    <thead>
+      <tr><th>Child</th><th>Step</th><th>Par</th><th>Basis</th><th>n</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for p in pars %}
+      <tr>
+        <td>{{ p.child_name }}</td>
+        <td>{{ p.step_title }}</td>
+        <td>{{ (p.par_seconds // 60) }}:{{ '%02d' % (p.par_seconds % 60) }}</td>
+        <td>{{ p.basis }}{% if p.frozen %} 🔒{% endif %}</td>
+        <td>{{ p.computed_from_n }}</td>
+        <td class="par-actions">
+          {% if not p.frozen %}
+          <button class="btn btn-sm" hx-post="/pars/{{ p.id }}/freeze" hx-swap="none">Freeze</button>
+          {% endif %}
+          <form hx-post="/pars/reset" hx-swap="none" style="display:inline">
+            <input type="hidden" name="child_id" value="{{ p.child_id }}">
+            <input type="hidden" name="step_id" value="{{ p.step_id }}">
+            <button class="btn btn-sm btn-danger" type="submit"
+                    hx-confirm="Reset this par and restart calibration?">Reset</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="links"><a href="/">Back</a></p>
+</main>
+{% endblock %}

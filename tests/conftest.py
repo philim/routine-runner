@@ -83,3 +83,11 @@ def morning_routine_id(seeded: Config) -> str:
     with instance_conn(seeded) as conn:
         row = conn.execute("SELECT id FROM routines WHERE name = 'morning'").fetchone()
         return row["id"]
+
+
+@pytest.fixture
+def bedtime_routine_id(seeded: Config) -> str:
+    """The bedtime routine is task-only (no gate) — handy for Phase 1 flow tests."""
+    with instance_conn(seeded) as conn:
+        row = conn.execute("SELECT id FROM routines WHERE name = 'bedtime'").fetchone()
+        return row["id"]

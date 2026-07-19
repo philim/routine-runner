@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import load_config
 from app.db import main_db
+from app.jobs import scheduler as scheduler_job
 from app.routes import enrol, events, kiosk, parent
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -20,7 +21,11 @@ async def lifespan(app: FastAPI):
     config = load_config()
     main_db.bootstrap(config)
     app.state.config = config
-    yield
+    app.state.scheduler = scheduler_job.start(config)
+    try:
+        yield
+    finally:
+        app.state.scheduler.shutdown(wait=False)
 
 
 def create_app() -> FastAPI:

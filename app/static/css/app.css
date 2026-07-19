@@ -45,6 +45,30 @@ body.kiosk { overflow: hidden; height: 100vh; }
 .step-icon { font-size: 4rem; }
 .step-title { font-size: 2rem; text-align: center; padding: 0 1rem; }
 .timer { font-size: 3rem; font-variant-numeric: tabular-nums; }
+
+/* countdown ring (spec §5.5, §5.6) */
+.ring-wrap { width: min(46vw, 40vh); max-width: 320px; }
+.ring { width: 100%; height: auto; transform: rotate(-90deg); }
+.ring-track { fill: none; stroke: #2a2f37; stroke-width: 10; }
+.ring-arc { fill: none; stroke: var(--ok); stroke-width: 10; stroke-linecap: round;
+  transition: stroke-dashoffset .25s linear, stroke .3s; }
+.ring-text { fill: var(--fg); font-size: 26px; font-variant-numeric: tabular-nums;
+  transform: rotate(90deg); transform-origin: 60px 60px; }
+.ring[data-state="on_pace"] .ring-arc { stroke: var(--ok); }
+.ring[data-state="closing"] .ring-arc { stroke: #e5a13a; animation: pulse 1s ease-in-out infinite; }
+.ring[data-state="over"] .ring-arc { stroke: var(--danger); }
+.ring[data-state="stalled"] .ring-arc { stroke: var(--danger); animation: slowpulse 2s ease-in-out infinite; }
+.ring[data-state="none"] .ring-arc { stroke: #6b7280; }
+@keyframes pulse { 50% { opacity: .45; } }
+@keyframes slowpulse { 50% { opacity: .3; } }
+
+/* gate waiting panel (spec §6.4) */
+.gate-wait { flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 1rem; text-align: center; }
+.gate-icon { font-size: 4rem; }
+.gate-sub { color: var(--muted); }
+.ask-again { background: #6b7280; }
+
 .dots { display: flex; gap: .5rem; }
 .dot { width: 14px; height: 14px; border-radius: 50%; background: #3a3f47; }
 .dot.on { background: var(--ok); }

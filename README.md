@@ -8,17 +8,26 @@ for the engineering plan.
 
 ## Status
 
-**Phase 0 (foundations) + Phase 1 (walking skeleton) implemented.**
+**Phases 0–3 implemented.**
 
-- Foundations: dual SQLite DBs with WAL + migrations, authoritative clock,
+- **Foundations:** dual SQLite DBs with WAL + migrations, authoritative clock,
   in-process event bus + SSE, JWT device auth with instant revocation, test
   harness.
-- Walking skeleton: SQL-seeded routines, kiosk idle → ready → active render,
+- **Walking skeleton:** SQL-seeded routines, kiosk idle → ready → active render,
   tile / NFC-token check-in, DONE advances with the no-untimed-gap invariant
-  (§5.1), run-1 participation stars, parent start / skip / pause / end.
+  (§5.1), parent start / skip / pause / end.
+- **Par engine:** bootstrap ramp (best → median handover at run 5), weekly
+  Sunday recompute with ±10% cap and hard floor, par snapshot at check-in,
+  freeze / reset, countdown rings with colour states (§5.5) and per-child
+  display modes (§5.6), star scoring, records, streaks, run bonuses.
+- **Gates:** blocking verification steps, waiting panel, approve with quality
+  rating, reject-with-resume (per-attempt timing so the paused interval is never
+  charged and the redo scores once against the same par), 5-minute auto-approve
+  backstop, escalation ladder + stalled-segment nudges via ntfy, rate-limited
+  "Ask again".
 
-Not yet built (later phases): par engine, countdown rings, gates, config UI,
-stats, NFC scan loop.
+Not yet built (later phases): config UI (Phase 4), stats & delight (Phase 5),
+NFC scan loop (Phase 6).
 
 ## Local development
 
