@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi.responses import RedirectResponse
 
 from app.config import Config
+from app.db import main_db
 from app.db.instance_db import instance_conn
 from app.models.device import Device
-from app.routes.deps import get_config, require_parent, templates
+from app.routes.deps import current_device, get_config, require_parent, templates
 from app.routes.kiosk import build_state
 from app.services import par_service, routine_service, run_service, verification_service
 from app.services.event_bus import Event, bus
@@ -18,9 +20,19 @@ router = APIRouter()
 @router.get("/")
 def dashboard(
     request: Request,
-    parent: Device = Depends(require_parent),
+    device: Device | None = Depends(current_device),
     config: Config = Depends(get_config),
 ):
+    """Role-aware entry: parent dashboard, kiosk redirect, or bootstrap."""
+    if device is None:
+        if not main_db.has_active_parents(config.main_db_path):
+            return RedirectResponse("/setup", status_code=303)
+        raise HTTPException(status_code=403, detail="parent device required")
+    if device.role == "kiosk":
+        return RedirectResponse("/kiosk", status_code=303)
+    if device.role != "parent":
+        raise HTTPException(status_code=403, detail="parent device required")
+
     with instance_conn(config) as conn:
         routines = routine_service.list_routines(conn)
         run = run_service.active_run(conn)

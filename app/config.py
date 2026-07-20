@@ -18,6 +18,7 @@ class Config:
     enrol_ttl_seconds: int
     ntfy_topic: str | None
     notify_backend: str  # ntfy | noop
+    hostname: str | None  # public TLS hostname (RR_HOSTNAME); used in claim QR URLs
 
     @property
     def instance_db_path(self) -> Path:
@@ -27,6 +28,7 @@ class Config:
 def load_config() -> Config:
     data_dir = Path(os.environ.get("RR_DATA_DIR", "./data")).resolve()
     data_dir.mkdir(parents=True, exist_ok=True)
+    hostname = os.environ.get("RR_HOSTNAME") or None
     return Config(
         data_dir=data_dir,
         main_db_path=data_dir / "main.db",
@@ -37,4 +39,5 @@ def load_config() -> Config:
         enrol_ttl_seconds=int(os.environ.get("RR_ENROL_TTL_SECONDS", "300")),
         ntfy_topic=os.environ.get("RR_NTFY_TOPIC"),
         notify_backend=os.environ.get("RR_NOTIFY_BACKEND", "noop"),
+        hostname=hostname,
     )

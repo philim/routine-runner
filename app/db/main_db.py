@@ -36,3 +36,17 @@ def has_devices(main_db_path: Path) -> bool:
     with connect(main_db_path) as conn:
         row = conn.execute("SELECT 1 FROM devices WHERE revoked_at IS NULL LIMIT 1").fetchone()
         return row is not None
+
+
+def has_active_parents(main_db_path: Path) -> bool:
+    """True when at least one non-revoked parent device exists.
+
+    Kiosk-only households are treated as unclaimed so ``/setup`` can recover
+    after the last parent is revoked.
+    """
+    with connect(main_db_path) as conn:
+        row = conn.execute(
+            "SELECT 1 FROM devices "
+            "WHERE role = 'parent' AND revoked_at IS NULL LIMIT 1"
+        ).fetchone()
+        return row is not None

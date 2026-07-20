@@ -9,6 +9,7 @@ services:
       RR_DATA_DIR: /data
       RR_HOUSEHOLD_ID: ${RR_HOUSEHOLD_ID:-home}
       RR_HOUSEHOLD_NAME: ${RR_HOUSEHOLD_NAME:-Home}
+      RR_HOSTNAME: ${RR_HOSTNAME:-routines.philim.com}
       RR_JWT_SECRET: ${RR_JWT_SECRET:?set a strong secret}
       RR_NOTIFY_BACKEND: ${RR_NOTIFY_BACKEND:-ntfy}
       RR_NTFY_TOPIC: ${RR_NTFY_TOPIC:-}

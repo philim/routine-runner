@@ -7,7 +7,7 @@ from app.config import Config
 from app.db import main_db
 from app.db.instance_db import instance_conn
 from app.main import create_app
-from app.routes.deps import COOKIE_NAME
+from app.routes.deps import COOKIE_KIOSK, COOKIE_PARENT
 from app.services import device_service
 from scripts.seed_routines import seed
 
@@ -26,6 +26,7 @@ def config(tmp_path) -> Config:
         enrol_ttl_seconds=300,
         ntfy_topic=None,
         notify_backend="noop",
+        hostname=None,
     )
 
 
@@ -60,14 +61,14 @@ def kiosk_token(seeded: Config) -> str:
 @pytest.fixture
 def parent_client(app, parent_token: str) -> TestClient:
     client = TestClient(app)
-    client.cookies.set(COOKIE_NAME, parent_token)
+    client.cookies.set(COOKIE_PARENT, parent_token)
     return client
 
 
 @pytest.fixture
 def kiosk_client(app, kiosk_token: str) -> TestClient:
     client = TestClient(app)
-    client.cookies.set(COOKIE_NAME, kiosk_token)
+    client.cookies.set(COOKIE_KIOSK, kiosk_token)
     return client
 
 
