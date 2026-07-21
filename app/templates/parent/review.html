@@ -1,35 +1,44 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 {% block title %}Checks{% endblock %}
-{% block content %}
-<main class="review"
-      hx-ext="sse" sse-connect="/events/parent"
-      hx-get="/gates" hx-trigger="sse:state, every 5s"
-      hx-select="#gate-list" hx-target="#gate-list" hx-swap="outerHTML">
-  <h1>Checks waiting</h1>
-  <div id="gate-list">
+{% block admin_content %}
+<div hx-ext="sse" sse-connect="/events/parent"
+     hx-get="/gates" hx-trigger="sse:state, every 5s"
+     hx-select="#gate-list" hx-target="#gate-list" hx-swap="outerHTML">
+  <h1 class="text-2xl sm:text-3xl font-bold mb-4">Checks waiting</h1>
+  <div id="gate-list" class="space-y-4">
     {% if not gates %}
-      <p class="empty">No checks waiting.</p>
+    <div class="card bg-base-100 shadow-sm">
+      <div class="card-body items-center text-center text-base-content/60">
+        <span class="text-3xl" aria-hidden="true">✅</span>
+        <p>No checks waiting.</p>
+      </div>
+    </div>
     {% endif %}
     {% for g in gates %}
-    <section class="gate-card">
-      <h2>{{ g.child_name }}</h2>
-      <p class="gate-step">{{ g.step_title }}</p>
-      <form hx-post="/gates/{{ g.id }}/approve" hx-swap="none" class="gate-actions">
-        <label>Quality
-          <select name="quality_stars">
-            <option value="3">⭐⭐⭐</option>
-            <option value="2">⭐⭐</option>
-            <option value="1">⭐</option>
-            <option value="0">—</option>
-          </select>
-        </label>
-        <button class="btn" type="submit">Approve</button>
-      </form>
-      <form hx-post="/gates/{{ g.id }}/reject" hx-swap="none">
-        <button class="btn btn-danger" type="submit">Reject — redo</button>
-      </form>
-    </section>
+    <div class="card bg-base-100 shadow-md">
+      <div class="card-body">
+        <h2 class="card-title">{{ g.child_name }}</h2>
+        <p class="text-base-content/70">{{ g.step_title }}</p>
+        <div class="flex flex-wrap items-end gap-3 mt-2">
+          <form hx-post="/gates/{{ g.id }}/approve" hx-swap="none" class="flex items-end gap-2">
+            <label class="form-control">
+              <span class="label-text text-xs">Quality</span>
+              <select name="quality_stars" class="select select-bordered select-sm">
+                <option value="3">⭐⭐⭐</option>
+                <option value="2">⭐⭐</option>
+                <option value="1">⭐</option>
+                <option value="0">—</option>
+              </select>
+            </label>
+            <button class="btn btn-success btn-sm" type="submit">Approve</button>
+          </form>
+          <form hx-post="/gates/{{ g.id }}/reject" hx-swap="none">
+            <button class="btn btn-error btn-outline btn-sm" type="submit">Reject — redo</button>
+          </form>
+        </div>
+      </div>
+    </div>
     {% endfor %}
   </div>
-</main>
+</div>
 {% endblock %}

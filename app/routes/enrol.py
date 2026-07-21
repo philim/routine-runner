@@ -13,14 +13,17 @@ from urllib.parse import urlencode
 import qrcode
 import qrcode.image.svg
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
+from fastapi.responses import RedirectResponse
 
 from app.config import Config
 from app.db import main_db
 from app.models.device import Device
 from app.routes.deps import (
     clear_device_cookie,
+    current_device,
     get_config,
     require_parent,
+    scrub_stale_role_cookies,
     set_device_cookie,
     templates,
 )
@@ -72,15 +75,19 @@ def setup_claim(
     request: Request,
     token: str = Form(...),
     label: str = Form(...),
+    email: str = Form(default=""),
     config: Config = Depends(get_config),
 ):
     if main_db.has_active_parents(config.main_db_path):
         raise HTTPException(status_code=404, detail="setup already completed")
-    minted = device_service.claim(config, token, label)
+    try:
+        minted = device_service.claim(config, token, label, email=email or None)
+    except device_service.EnrolmentError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     response = templates.TemplateResponse(
         request, "parent/enrolled.html", {"device": minted.device}
     )
-    set_device_cookie(response, config, minted.jwt, minted.device.role)
+    set_device_cookie(response, config, minted.jwt, minted.device.role, request)
     return response
 
 
@@ -117,26 +124,64 @@ def claim_submit(
     request: Request,
     token: str = Form(...),
     label: str = Form(...),
+    email: str = Form(default=""),
     config: Config = Depends(get_config),
 ):
-    minted = device_service.claim(config, token, label)
+    try:
+        minted = device_service.claim(config, token, label, email=email or None)
+    except device_service.EnrolmentError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     response = templates.TemplateResponse(
         request, "parent/enrolled.html", {"device": minted.device}
     )
-    set_device_cookie(response, config, minted.jwt, minted.device.role)
+    set_device_cookie(response, config, minted.jwt, minted.device.role, request)
     return response
 
 
 @router.get("/devices")
 def devices(
     request: Request,
-    parent: Device = Depends(require_parent),
+    response: Response,
+    device: Device | None = Depends(current_device),
     config: Config = Depends(get_config),
 ):
+    """Parent device manager; kiosk sessions are sent to /kiosk (like ``/``)."""
+    scrub_stale_role_cookies(request, response, config)
+    if device is None:
+        if not main_db.has_active_parents(config.main_db_path):
+            return RedirectResponse("/setup", status_code=303)
+        raise HTTPException(status_code=403, detail="parent device required")
+    if device.role == "kiosk":
+        return RedirectResponse("/kiosk", status_code=303)
+    if device.role != "parent":
+        raise HTTPException(status_code=403, detail="parent device required")
+
     return templates.TemplateResponse(
         request, "parent/devices.html",
         {"devices": device_service.list_devices(config)}
     )
+
+
+@router.post("/devices/{device_id}/email")
+def set_device_email(
+    request: Request,
+    device_id: str,
+    email: str = Form(default=""),
+    parent: Device = Depends(require_parent),
+    config: Config = Depends(get_config),
+):
+    del parent  # auth only
+    try:
+        device_service.set_email(config, device_id, email or None)
+    except device_service.EnrolmentError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if request.headers.get("HX-Request"):
+        return templates.TemplateResponse(
+            request,
+            "parent/devices.html",
+            {"devices": device_service.list_devices(config)},
+        )
+    return RedirectResponse("/devices", status_code=303)
 
 
 @router.post("/devices/{device_id}/revoke")
@@ -147,8 +192,16 @@ def revoke_device(
     config: Config = Depends(get_config),
 ):
     device_service.revoke(config, device_id)
+    clearing_self = device_id == parent.id
+
     if main_db.has_active_parents(config.main_db_path):
-        return Response(status_code=204)
+        response = Response(status_code=204)
+        if clearing_self:
+            # Don't leave a revoked JWT in rr_parent — it blocks parent mode.
+            clear_device_cookie(response, "parent")
+            if request.headers.get("HX-Request"):
+                response.headers["HX-Redirect"] = "/"
+        return response
 
     # Last parent gone — reopen bootstrap and drop the now-dead session cookie.
     if request.headers.get("HX-Request"):

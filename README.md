@@ -57,6 +57,15 @@ On Windows use `run.bat serve --reload`, etc. Without the wrapper:
 First boot with no devices serves `/setup`, which prints an enrolment QR. Enrol a
 parent device, then add a kiosk device from **Devices**.
 
+Parents can also sign in at `/parent` with an email OTP (Resend). Set
+`RESEND_API_KEY` and save a login email on the parent device under **Devices**.
+
+For local development, set `RR_DEV_MODE=true` to expose a **Dev login** button on
+`/parent` (and the `POST /parent/dev-login` endpoint) that mints a parent session
+with no authentication — reusing an existing parent device or creating one. The
+endpoint returns `404` whenever `RR_DEV_MODE` is off, so it is invisible in
+production. **Never enable this in production.**
+
 ### Tests & lint
 
 ```bash

@@ -1,13 +1,17 @@
-{% extends "base.html" %}
+{% extends "auth_base.html" %}
 {% block title %}Enrolled{% endblock %}
-{% block content %}
-<main class="setup">
-  <h1>Device enrolled</h1>
-  <p><strong>{{ device.label }}</strong> is now a <strong>{{ device.role }}</strong> device.</p>
-  {% if device.role == "parent" %}
-    <a class="btn" href="/">Go to dashboard</a>
-  {% else %}
-    <a class="btn" href="/kiosk">Open kiosk</a>
-  {% endif %}
-</main>
+{% block auth_content %}
+<div class="card bg-base-100 shadow-xl">
+  <div class="card-body items-center text-center">
+    <span class="text-4xl" aria-hidden="true">✅</span>
+    <h1 class="card-title text-2xl">Device enrolled</h1>
+    <p><strong>{{ device.label }}</strong> is now a
+      <span class="badge badge-primary">{{ device.role }}</span> device.</p>
+    {% if device.role == "parent" %}
+      <a class="btn btn-primary btn-block mt-2" href="/">Go to dashboard</a>
+    {% else %}
+      <a class="btn btn-primary btn-block mt-2" href="/kiosk">Open kiosk</a>
+    {% endif %}
+  </div>
+</div>
 {% endblock %}

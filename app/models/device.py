@@ -14,9 +14,11 @@ class Device:
     created_at: int
     last_seen_at: int | None = None
     revoked_at: int | None = None
+    email: str | None = None
 
     @classmethod
     def from_row(cls, row: Row) -> Device:
+        keys = row.keys()
         return cls(
             id=row["id"],
             household_id=row["household_id"],
@@ -26,4 +28,5 @@ class Device:
             created_at=row["created_at"],
             last_seen_at=row["last_seen_at"],
             revoked_at=row["revoked_at"],
+            email=row["email"] if "email" in keys else None,
         )

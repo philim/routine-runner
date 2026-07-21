@@ -1,12 +1,23 @@
-{% extends "base.html" %}
+{% extends "auth_base.html" %}
 {% block title %}Add device{% endblock %}
-{% block content %}
-<main class="setup">
-  <h1>Add this device</h1>
-  <form method="post" action="/claim" class="claim-form">
-    <input type="hidden" name="token" value="{{ token }}">
-    <label>Device name <input name="label" required></label>
-    <button class="btn" type="submit">Claim</button>
-  </form>
-</main>
+{% block auth_content %}
+<div class="card bg-base-100 shadow-xl">
+  <div class="card-body">
+    <h1 class="card-title text-2xl">Add this device</h1>
+    <form method="post" action="/claim" class="mt-3 space-y-3">
+      <input type="hidden" name="token" value="{{ token }}">
+      <label class="form-control">
+        <span class="label-text">Device name</span>
+        <input name="label" required class="input input-bordered w-full">
+      </label>
+      <label class="form-control">
+        <span class="label-text">Login email <span class="text-base-content/50">(optional, parents)</span></span>
+        <input type="email" name="email" autocomplete="email" placeholder="you@example.com"
+               class="input input-bordered w-full">
+        <span class="label-text-alt text-base-content/50 mt-1">Used for /parent OTP login</span>
+      </label>
+      <button class="btn btn-primary btn-block" type="submit">Claim</button>
+    </form>
+  </div>
+</div>
 {% endblock %}

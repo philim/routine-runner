@@ -1,37 +1,48 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 {% block title %}Pars{% endblock %}
-{% block content %}
-<main class="pars">
-  <h1>Current pars</h1>
-  <p class="hint">Par is derived from each child's own history — not set by hand
-    (§5.4). You can freeze a par or reset it when the real world changed.</p>
-  <table class="par-table">
+{% block admin_content %}
+<h1 class="text-2xl sm:text-3xl font-bold mb-1">Current pars</h1>
+<p class="text-base-content/60 mb-4">
+  Par is derived from each child's own history — not set by hand (§5.4).
+  Freeze a par or reset it when the real world changed.
+</p>
+
+<div class="overflow-x-auto card bg-base-100 shadow-sm">
+  <table class="table">
     <thead>
       <tr><th>Child</th><th>Step</th><th>Par</th><th>Basis</th><th>n</th><th></th></tr>
     </thead>
     <tbody>
       {% for p in pars %}
       <tr>
-        <td>{{ p.child_name }}</td>
+        <td class="font-medium">{{ p.child_name }}</td>
         <td>{{ p.step_title }}</td>
-        <td>{{ (p.par_seconds // 60) }}:{{ '%02d' % (p.par_seconds % 60) }}</td>
-        <td>{{ p.basis }}{% if p.frozen %} 🔒{% endif %}</td>
+        <td class="font-mono">{{ (p.par_seconds // 60) }}:{{ '%02d' % (p.par_seconds % 60) }}</td>
+        <td>
+          <span class="badge badge-ghost">{{ p.basis }}</span>
+          {% if p.frozen %}<span title="frozen">🔒</span>{% endif %}
+        </td>
         <td>{{ p.computed_from_n }}</td>
-        <td class="par-actions">
+        <td class="text-right whitespace-nowrap">
           {% if not p.frozen %}
-          <button class="btn btn-sm" hx-post="/pars/{{ p.id }}/freeze" hx-swap="none">Freeze</button>
+          <button class="btn btn-xs" hx-post="/pars/{{ p.id }}/freeze" hx-swap="none">Freeze</button>
           {% endif %}
-          <form hx-post="/pars/reset" hx-swap="none" style="display:inline">
+          <form hx-post="/pars/reset" hx-swap="none" class="inline">
             <input type="hidden" name="child_id" value="{{ p.child_id }}">
             <input type="hidden" name="step_id" value="{{ p.step_id }}">
-            <button class="btn btn-sm btn-danger" type="submit"
+            <button class="btn btn-xs btn-error btn-outline" type="submit"
                     hx-confirm="Reset this par and restart calibration?">Reset</button>
           </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="6" class="text-center text-base-content/60 py-6">
+          No pars yet — they appear after the first runs.
         </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
-  <p class="links"><a href="/">Back</a></p>
-</main>
+</div>
 {% endblock %}

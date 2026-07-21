@@ -1,5 +1,9 @@
-<div class="qr-block">
-  <p>Scan on the new <strong>{{ role }}</strong> device (valid 5 minutes):</p>
-  <img src="{{ qr }}" alt="enrolment QR" class="qr-img">
-  <p class="qr-fallback">Or open <code>{{ claim_url }}</code></p>
+<div class="card bg-base-100 shadow-md">
+  <div class="card-body items-center text-center">
+    <p>Scan on the new <span class="badge badge-primary">{{ role }}</span> device (valid 5 minutes):</p>
+    <img src="{{ qr }}" alt="enrolment QR" class="w-56 h-56 rounded-lg bg-white p-2">
+    <p class="text-sm text-base-content/60 break-all">
+      Or open <code class="text-xs">{{ claim_url }}</code>
+    </p>
+  </div>
 </div>

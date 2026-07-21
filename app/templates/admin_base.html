@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{# Admin/parent shell: DaisyUI + Tailwind, self-hosted so the LAN app works offline. #}
+{% block styles %}
+  <script src="/static/vendor/tailwind.js"></script>
+  <script src="/static/js/tw-config.js"></script>
+  <link rel="stylesheet" href="/static/vendor/daisyui.min.css">
+{% endblock %}
+
+{% set _path = request.url.path if request else '/' %}
+{% macro navlink(href, label) %}
+  <li><a href="{{ href }}"
+         class="{{ 'active font-semibold' if (_path == href or (href != '/' and _path.startswith(href))) else '' }}">{{ label }}</a></li>
+{% endmacro %}
+
+{% block content %}
+<div class="min-h-screen bg-base-200 text-base-content">
+  <div class="navbar bg-base-100 shadow-md sticky top-0 z-30 px-2 sm:px-4">
+    <div class="flex-1">
+      <a href="/" class="btn btn-ghost text-lg sm:text-xl gap-2">
+        <span aria-hidden="true">⏱️</span> Routine Runner
+      </a>
+    </div>
+    <div class="flex-none">
+      <ul class="menu menu-horizontal px-1 hidden sm:flex gap-1">
+        {{ navlink('/', 'Dashboard') }}
+        {{ navlink('/gates', 'Checks') }}
+        {{ navlink('/pars', 'Pars') }}
+        {{ navlink('/devices', 'Devices') }}
+      </ul>
+      <div class="dropdown dropdown-end sm:hidden">
+        <div tabindex="0" role="button" class="btn btn-ghost btn-square" aria-label="Menu">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none"
+               viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </div>
+        <ul tabindex="0"
+            class="menu dropdown-content mt-3 z-40 p-2 shadow-lg bg-base-100 rounded-box w-52">
+          {{ navlink('/', 'Dashboard') }}
+          {{ navlink('/gates', 'Checks') }}
+          {{ navlink('/pars', 'Pars') }}
+          {{ navlink('/devices', 'Devices') }}
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <main class="container mx-auto max-w-3xl p-4 sm:p-6">
+    {% block admin_content %}{% endblock %}
+  </main>
+</div>
+{% endblock %}

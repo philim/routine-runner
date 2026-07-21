@@ -1,31 +1,49 @@
-{% extends "base.html" %}
-{% block title %}Routine Runner{% endblock %}
-{% block content %}
-<main class="dashboard">
-  <h1>Routine Runner</h1>
+{% extends "admin_base.html" %}
+{% block title %}Dashboard — Routine Runner{% endblock %}
+{% block admin_content %}
+{% if active_run %}
+  <div role="alert" class="alert alert-info shadow-md mb-6 flex-wrap">
+    <span>A <span class="badge badge-neutral align-middle">{{ active_run.state }}</span> run is in progress.</span>
+    <a class="btn btn-sm btn-primary" href="/runs/{{ active_run.id }}/live">Open live view</a>
+  </div>
+{% endif %}
 
-  {% if active_run %}
-    <div class="active-run">
-      <p>A <strong>{{ active_run.state }}</strong> run is in progress.</p>
-      <a class="btn" href="/runs/{{ active_run.id }}/live">Open live view</a>
+<div class="mb-6">
+  <h1 class="text-2xl sm:text-3xl font-bold">Start a routine</h1>
+  <p class="text-base-content/60 mt-1">Kick off a routine, then kids check in at the kiosk.</p>
+</div>
+
+{% if routines %}
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  {% for r in routines %}
+  {% set icon = {'morning': '☀️', 'bedtime': '🌙'}.get(r.name, '📋') %}
+  <div class="card bg-base-100 shadow-md hover:shadow-xl transition-shadow">
+    <div class="card-body">
+      <h2 class="card-title capitalize">
+        <span class="text-2xl" aria-hidden="true">{{ icon }}</span> {{ r.name }}
+      </h2>
+      <div class="card-actions mt-2">
+        <form hx-post="/runs" hx-target="#start-result" hx-swap="innerHTML" class="w-full">
+          <input type="hidden" name="routine_id" value="{{ r.id }}">
+          <button class="btn btn-primary btn-block capitalize" type="submit">Start {{ r.name }}</button>
+        </form>
+      </div>
     </div>
-  {% else %}
-    <section class="start">
-      <h2>Start a routine</h2>
-      {% for r in routines %}
-      <form hx-post="/runs" hx-target="#start-result" hx-swap="innerHTML">
-        <input type="hidden" name="routine_id" value="{{ r.id }}">
-        <button class="btn btn-lg" type="submit">{{ r.name }}</button>
-      </form>
-      {% endfor %}
-      <div id="start-result"></div>
-    </section>
-  {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card bg-base-100 shadow-md">
+  <div class="card-body items-center text-center">
+    <span class="text-4xl" aria-hidden="true">📋</span>
+    <h2 class="card-title">No routines yet</h2>
+    <p class="text-base-content/60">
+      Run <code class="badge badge-ghost">python run.py seed</code>
+      to add the morning and bedtime placeholders.
+    </p>
+  </div>
+</div>
+{% endif %}
 
-  <p class="links">
-    <a href="/gates">Checks</a> ·
-    <a href="/pars">Pars</a> ·
-    <a href="/devices">Devices</a>
-  </p>
-</main>
+<div id="start-result" class="mt-4"></div>
 {% endblock %}

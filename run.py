@@ -80,6 +80,8 @@ def cmd_info(_args: argparse.Namespace) -> int:
     print(f"  household_id    : {config.household_id}")
     print(f"  notify_backend  : {config.notify_backend}")
     print(f"  ntfy_topic      : {config.ntfy_topic or '(none)'}")
+    print(f"  email_backend   : {config.email_backend}")
+    print(f"  resend_from     : {config.resend_from}")
     return 0
 
 

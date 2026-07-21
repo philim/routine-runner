@@ -18,7 +18,9 @@ def test_kiosk_cannot_reach_parent_routes(app, parent_token, kiosk_token):
     home = client.get("/", follow_redirects=False)
     assert home.status_code == 303
     assert home.headers["location"] == "/kiosk"
-    assert client.get("/devices").status_code == 403
+    devices = client.get("/devices", follow_redirects=False)
+    assert devices.status_code == 303
+    assert devices.headers["location"] == "/kiosk"
 
 
 def test_parent_cannot_reach_kiosk_routes(app, parent_token):
@@ -35,6 +37,51 @@ def test_parent_and_kiosk_cookies_coexist(app, parent_token, kiosk_token):
     assert client.get("/").status_code == 200
     assert client.get("/devices").status_code == 200
     assert client.get("/kiosk").status_code == 200
+
+
+def test_devices_uses_parent_when_both_cookies_present(app, parent_token, kiosk_token):
+    """/devices enters parent mode even if a kiosk session shares the browser."""
+    client = TestClient(app)
+    client.cookies.set(COOKIE_PARENT, parent_token)
+    client.cookies.set(COOKIE_KIOSK, kiosk_token)
+    page = client.get("/devices")
+    assert page.status_code == 200
+    assert "Devices" in page.text
+
+
+def test_stale_revoked_parent_cookie_falls_back_to_legacy(app, seeded):
+    """A revoked rr_parent must not block a still-valid legacy parent JWT."""
+    first = device_service.claim(
+        seeded, device_service.create_enrolment_token(seeded, "parent", None), "First"
+    )
+    second = device_service.claim(
+        seeded, device_service.create_enrolment_token(seeded, "parent", None), "Second"
+    )
+    device_service.revoke(seeded, second.device.id)
+
+    client = TestClient(app)
+    client.cookies.set(COOKIE_PARENT, second.jwt)  # revoked
+    client.cookies.set("rr_token", first.jwt)  # still valid
+    assert client.get("/devices").status_code == 200
+
+
+def test_revoking_own_device_clears_parent_cookie(app, seeded, parent_token):
+    other = device_service.claim(
+        seeded, device_service.create_enrolment_token(seeded, "parent", None), "Other"
+    )
+    self_id = next(
+        d.id for d in device_service.list_devices(seeded)
+        if d.role == "parent" and d.revoked_at is None and d.id != other.device.id
+    )
+    client = TestClient(app)
+    client.cookies.set(COOKIE_PARENT, parent_token)
+    response = client.post(f"/devices/{self_id}/revoke", headers={"HX-Request": "true"})
+    assert response.status_code == 204
+    assert response.headers.get("HX-Redirect") == "/"
+    set_cookie = response.headers.get("set-cookie", "")
+    assert "rr_parent=" in set_cookie.lower()
+    # Revoked JWT no longer authorizes parent mode.
+    assert client.get("/devices").status_code == 403
 
 
 def test_no_token_redirects_to_setup_when_unclaimed(app):

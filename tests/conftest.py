@@ -27,6 +27,11 @@ def config(tmp_path) -> Config:
         ntfy_topic=None,
         notify_backend="noop",
         hostname=None,
+        resend_api_key=None,
+        resend_from="Routine Runner <test@example.com>",
+        email_backend="noop",
+        otp_ttl_seconds=600,
+        otp_resend_seconds=60,
     )
 
 

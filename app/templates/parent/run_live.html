@@ -1,46 +1,58 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 {% block title %}Live run{% endblock %}
-{% block content %}
-<main class="run-live"
-      hx-ext="sse" sse-connect="/events/parent"
-      hx-get="/runs/{{ run.id }}/live" hx-trigger="sse:state, every 5s"
-      hx-select="#live-board" hx-target="#live-board" hx-swap="outerHTML">
-  <header class="run-live-head">
-    <h1>{{ routine.name }} — {{ run.state }}</h1>
-    <div class="controls">
-      <button class="btn" hx-post="/runs/{{ run.id }}/pause">Pause / Resume</button>
-      <button class="btn btn-danger" hx-post="/runs/{{ run.id }}/close"
+{% block admin_content %}
+<div hx-ext="sse" sse-connect="/events/parent"
+     hx-get="/runs/{{ run.id }}/live" hx-trigger="sse:state, every 5s"
+     hx-select="#live-board" hx-target="#live-board" hx-swap="outerHTML">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <h1 class="text-2xl sm:text-3xl font-bold capitalize">
+      {{ routine.name }} <span class="badge badge-neutral align-middle">{{ run.state }}</span>
+    </h1>
+    <div class="flex gap-2">
+      <button class="btn btn-sm" hx-post="/runs/{{ run.id }}/pause">Pause / Resume</button>
+      <button class="btn btn-sm btn-error" hx-post="/runs/{{ run.id }}/close"
               hx-confirm="End this run?">End run</button>
     </div>
-  </header>
+  </div>
 
-  <div id="live-board">
+  <div id="live-board" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
     {% if mode == "active" %}
       {% for col in columns %}
-      <section class="live-col">
-        <h2>{{ col.child.name }}</h2>
-        <p>{{ col.done }} / {{ col.total }} steps</p>
-        {% if col.finished %}
-          <p class="done-label">Finished — {{ col.run_child.stars }} ⭐</p>
-        {% elif col.segment and col.segment.state == "gate_open" %}
-          <p class="current gate">Check: <strong>{{ col.step.title }}</strong></p>
-          <form hx-post="/gates/{{ col.segment.id }}/approve" hx-swap="none" style="display:inline">
-            <input type="hidden" name="quality_stars" value="2">
-            <button class="btn btn-sm" type="submit">Approve</button>
-          </form>
-          <button class="btn btn-sm btn-danger"
-                  hx-post="/gates/{{ col.segment.id }}/reject" hx-swap="none">Reject</button>
-        {% elif col.step %}
-          <p class="current">Now: <strong>{{ col.step.title }}</strong></p>
-          <button class="btn btn-sm"
-                  hx-post="/segments/{{ col.segment.id }}/skip"
-                  hx-confirm="Skip this step for {{ col.child.name }}?">Skip step</button>
-        {% endif %}
-      </section>
+      <div class="card bg-base-100 shadow-md">
+        <div class="card-body">
+          <div class="flex items-center justify-between">
+            <h2 class="card-title">{{ col.child.name }}</h2>
+            <span class="badge badge-ghost">{{ col.done }} / {{ col.total }}</span>
+          </div>
+          {% if col.finished %}
+            <div class="badge badge-success gap-1 mt-2">Finished — {{ col.run_child.stars }} ⭐</div>
+          {% elif col.segment and col.segment.state == "gate_open" %}
+            <p class="mt-2">Check: <strong>{{ col.step.title }}</strong></p>
+            <div class="flex gap-2 mt-2">
+              <form hx-post="/gates/{{ col.segment.id }}/approve" hx-swap="none">
+                <input type="hidden" name="quality_stars" value="2">
+                <button class="btn btn-success btn-sm" type="submit">Approve</button>
+              </form>
+              <button class="btn btn-error btn-outline btn-sm"
+                      hx-post="/gates/{{ col.segment.id }}/reject" hx-swap="none">Reject</button>
+            </div>
+          {% elif col.step %}
+            <p class="mt-2">Now: <strong>{{ col.step.title }}</strong></p>
+            <button class="btn btn-sm mt-2"
+                    hx-post="/segments/{{ col.segment.id }}/skip"
+                    hx-confirm="Skip this step for {{ col.child.name }}?">Skip step</button>
+          {% endif %}
+        </div>
+      </div>
       {% endfor %}
     {% else %}
-      <p>Waiting for check-ins…</p>
+      <div class="card bg-base-100 shadow-sm sm:col-span-2">
+        <div class="card-body items-center text-center text-base-content/60">
+          <span class="loading loading-dots loading-md"></span>
+          <p>Waiting for check-ins…</p>
+        </div>
+      </div>
     {% endif %}
   </div>
-</main>
+</div>
 {% endblock %}

@@ -18,8 +18,16 @@ body { margin: 0; background: var(--bg); color: var(--fg); }
 .claim-form label { display: block; margin: 1rem 0; }
 .claim-form input { padding: .5rem; font-size: 1rem; width: 100%; }
 .device-list { list-style: none; padding: 0; }
-.device-list li { display: flex; gap: .75rem; align-items: center; padding: .5rem 0;
-  border-bottom: 1px solid #2a2e35; }
+.device-list li { display: flex; flex-direction: column; gap: .5rem; align-items: stretch;
+  padding: .75rem 0; border-bottom: 1px solid #2a2e35; }
+.d-main, .d-actions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
+.d-email { color: var(--muted); font-size: .9rem; }
+.email-form { display: flex; gap: .4rem; flex: 1; min-width: 12rem; }
+.email-form input { flex: 1; padding: .35rem .5rem; font-size: .9rem; }
+.hint { display: block; color: var(--muted); font-size: .85rem; font-weight: normal; margin-top: .25rem; }
+.form-error { color: var(--danger); }
+.links { color: var(--muted); }
+.links a { color: var(--accent); }
 .qr-img { width: 220px; height: 220px; image-rendering: pixelated;
   background: #fff; padding: .5rem; border-radius: .35rem; }
 

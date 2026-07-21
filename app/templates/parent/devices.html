@@ -1,30 +1,61 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 {% block title %}Devices{% endblock %}
-{% block content %}
-<main class="devices">
-  <h1>Devices</h1>
-  <ul class="device-list">
-    {% for d in devices %}
-    <li>
-      <span class="d-label">{{ d.label }}</span>
-      <span class="d-role">{{ d.role }}</span>
-      <span class="d-state">{{ "revoked" if d.revoked_at else "active" }}</span>
-      {% if not d.revoked_at %}
-      <button class="btn btn-sm btn-danger"
-              hx-post="/devices/{{ d.id }}/revoke" hx-confirm="Revoke {{ d.label }}?"
-              hx-swap="none">Revoke</button>
-      {% endif %}
-    </li>
-    {% endfor %}
-  </ul>
+{% block admin_content %}
+<h1 class="text-2xl sm:text-3xl font-bold mb-4">Devices</h1>
 
-  <section class="add-device">
-    <h2>Add a device</h2>
-    <button class="btn" hx-post="/devices/enrol" hx-vals='{"role":"parent"}'
-            hx-target="#enrol-qr">Add parent</button>
-    <button class="btn" hx-post="/devices/enrol" hx-vals='{"role":"kiosk"}'
-            hx-target="#enrol-qr">Add kiosk</button>
-    <div id="enrol-qr"></div>
-  </section>
-</main>
+<div class="space-y-3">
+  {% for d in devices %}
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body p-4">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="font-semibold text-lg">{{ d.label }}</span>
+        <span class="badge {{ 'badge-primary' if d.role == 'parent' else 'badge-secondary' }}">{{ d.role }}</span>
+        {% if d.revoked_at %}
+          <span class="badge badge-error badge-outline">revoked</span>
+        {% else %}
+          <span class="badge badge-success badge-outline">active</span>
+        {% endif %}
+      </div>
+
+      {% if not d.revoked_at %}
+      <div class="flex flex-wrap items-end gap-3 mt-3">
+        {% if d.role == 'parent' %}
+        <form method="post" action="/devices/{{ d.id }}/email" class="flex items-end gap-2 grow">
+          <label class="form-control grow">
+            <span class="label-text text-xs">Login email</span>
+            <input type="email" name="email" value="{{ d.email or '' }}"
+                   placeholder="you@example.com" autocomplete="email"
+                   class="input input-bordered input-sm w-full">
+          </label>
+          <button class="btn btn-sm" type="submit">Save</button>
+        </form>
+        {% endif %}
+        <button class="btn btn-sm btn-error btn-outline"
+                hx-post="/devices/{{ d.id }}/revoke" hx-confirm="Revoke {{ d.label }}?"
+                hx-swap="none">Revoke</button>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body items-center text-center text-base-content/60">
+      <p>No devices yet.</p>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="divider mt-8">Add a device</div>
+<div class="flex flex-wrap gap-3">
+  <button class="btn btn-primary" hx-post="/devices/enrol" hx-vals='{"role":"parent"}'
+          hx-target="#enrol-qr">Add parent</button>
+  <button class="btn btn-secondary" hx-post="/devices/enrol" hx-vals='{"role":"kiosk"}'
+          hx-target="#enrol-qr">Add kiosk</button>
+</div>
+<div id="enrol-qr" class="mt-4"></div>
+
+<div class="mt-8">
+  <a href="/parent" class="link link-primary">Parent email login</a>
+</div>
 {% endblock %}

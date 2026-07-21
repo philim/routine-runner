@@ -1,0 +1,49 @@
+{% extends "auth_base.html" %}
+{% block title %}Parent login — Routine Runner{% endblock %}
+{% block auth_content %}
+<div class="card bg-base-100 shadow-xl">
+  <div class="card-body">
+    <h1 class="card-title text-2xl">Parent login</h1>
+    {% if step == "email" %}
+      <p class="text-base-content/60">
+        Enter the email configured on your parent device. We’ll send a one-time code.
+      </p>
+      {% if error %}<div role="alert" class="alert alert-error text-sm mt-2">{{ error }}</div>{% endif %}
+      <form method="post" action="/parent/otp" class="mt-3 space-y-3">
+        <label class="form-control">
+          <span class="label-text">Email</span>
+          <input type="email" name="email" required autocomplete="email" value="{{ email }}"
+                 placeholder="you@example.com" class="input input-bordered w-full">
+        </label>
+        <button class="btn btn-primary btn-block" type="submit">Send code</button>
+      </form>
+
+      {% if dev_mode %}
+      <div class="divider text-xs">Development</div>
+      <div role="alert" class="alert alert-warning text-sm mb-2">
+        <span>Dev mode — authentication bypass enabled.</span>
+      </div>
+      <form method="post" action="/parent/dev-login">
+        <button class="btn btn-outline btn-warning btn-block" type="submit">Dev login (skip OTP)</button>
+      </form>
+      {% endif %}
+    {% else %}
+      <p class="text-base-content/60">
+        {% if info %}{{ info }}{% else %}Enter the 6-digit code we emailed you.{% endif %}
+      </p>
+      {% if error %}<div role="alert" class="alert alert-error text-sm mt-2">{{ error }}</div>{% endif %}
+      <form method="post" action="/parent/verify" class="mt-3 space-y-3">
+        <input type="hidden" name="email" value="{{ email }}">
+        <label class="form-control">
+          <span class="label-text">Code</span>
+          <input name="code" required inputmode="numeric" pattern="[0-9]{6}" maxlength="6"
+                 autocomplete="one-time-code" placeholder="123456"
+                 class="input input-bordered w-full text-center text-lg tracking-[0.5em]">
+        </label>
+        <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+      </form>
+      <a href="/parent" class="link link-hover text-sm mt-3 inline-block">Use a different email</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -36,7 +36,13 @@ def cookie_name_for_role(role: str) -> str:
     raise ValueError(f"unknown role: {role}")
 
 
-def set_device_cookie(response: Response, config: Config, token: str, role: str) -> None:
+def set_device_cookie(
+    response: Response,
+    config: Config,
+    token: str,
+    role: str,
+    request: Request | None = None,
+) -> None:
     """Persist a device JWT without clobbering the other role's session."""
     response.set_cookie(
         cookie_name_for_role(role),
@@ -45,7 +51,19 @@ def set_device_cookie(response: Response, config: Config, token: str, role: str)
         samesite="lax",
         max_age=config.token_ttl_days * 86400,
     )
-    # Drop the old shared cookie so it can't override the role-specific ones.
+    # If an old shared cookie held the *other* role, migrate it before deleting.
+    if request is not None:
+        legacy = request.cookies.get(COOKIE_LEGACY)
+        if legacy and legacy != token:
+            other = device_service.validate(config, legacy)
+            if other is not None and other.role != role:
+                response.set_cookie(
+                    cookie_name_for_role(other.role),
+                    legacy,
+                    httponly=True,
+                    samesite="lax",
+                    max_age=config.token_ttl_days * 86400,
+                )
     response.delete_cookie(COOKIE_LEGACY)
 
 
@@ -54,21 +72,18 @@ def clear_device_cookie(response: Response, role: str) -> None:
     response.delete_cookie(COOKIE_LEGACY)
 
 
-def _token_for_role(request: Request, role: str) -> str | None:
-    token = request.cookies.get(cookie_name_for_role(role))
-    if token:
-        return token
-    return request.cookies.get(COOKIE_LEGACY)
-
-
 def _device_for_role(request: Request, config: Config, role: str) -> Device | None:
-    token = _token_for_role(request, role)
-    if not token:
-        return None
-    device = device_service.validate(config, token)
-    if device is None or device.role != role:
-        return None
-    return device
+    """Resolve a live device for ``role``, skipping stale/revoked cookies."""
+    seen: set[str] = set()
+    for name in (cookie_name_for_role(role), COOKIE_LEGACY):
+        token = request.cookies.get(name)
+        if not token or token in seen:
+            continue
+        seen.add(token)
+        device = device_service.validate(config, token)
+        if device is not None and device.role == role:
+            return device
+    return None
 
 
 def _reject_or_redirect_to_setup(config: Config, detail: str) -> NoReturn:
@@ -88,19 +103,46 @@ def current_device(
     return _device_for_role(request, config, "kiosk")
 
 
+def scrub_stale_role_cookies(
+    request: Request, response: Response, config: Config
+) -> None:
+    """Drop role cookies whose JWT no longer maps to a live device of that role."""
+    for role, name in (("parent", COOKIE_PARENT), ("kiosk", COOKIE_KIOSK)):
+        token = request.cookies.get(name)
+        if not token:
+            continue
+        device = device_service.validate(config, token)
+        if device is None or device.role != role:
+            response.delete_cookie(name)
+    legacy = request.cookies.get(COOKIE_LEGACY)
+    if legacy:
+        device = device_service.validate(config, legacy)
+        if device is None:
+            response.delete_cookie(COOKIE_LEGACY)
+
+
 def require_parent(
-    request: Request, config: Config = Depends(get_config)
+    request: Request,
+    response: Response,
+    config: Config = Depends(get_config),
 ) -> Device:
     device = _device_for_role(request, config, "parent")
     if device is None:
+        # Revoked/expired rr_parent must not poison every parent route forever.
+        if request.cookies.get(COOKIE_PARENT) or request.cookies.get(COOKIE_LEGACY):
+            clear_device_cookie(response, "parent")
         _reject_or_redirect_to_setup(config, "parent device required")
     return device
 
 
 def require_kiosk(
-    request: Request, config: Config = Depends(get_config)
+    request: Request,
+    response: Response,
+    config: Config = Depends(get_config),
 ) -> Device:
     device = _device_for_role(request, config, "kiosk")
     if device is None:
+        if request.cookies.get(COOKIE_KIOSK) or request.cookies.get(COOKIE_LEGACY):
+            clear_device_cookie(response, "kiosk")
         _reject_or_redirect_to_setup(config, "kiosk device required")
     return device
