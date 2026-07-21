@@ -46,8 +46,12 @@ body.kiosk { overflow: hidden; height: 100vh; }
 .tile-avatar { font-size: 4rem; }
 
 .split { display: flex; height: 100vh; }
-.col { flex: 1; display: flex; flex-direction: column; border-left: 6px solid var(--c, #333); }
+.col { flex: 1; display: flex; flex-direction: column; border-left: 6px solid var(--c, #333); min-width: 0; }
 .col:first-child { border-left: none; }
+/* per-child body: the independently-refreshing region inside each column */
+.col-body { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.checkin-tile { flex: 1; display: flex; }
+.checkin-tile .tile { flex: 1; }
 .col-head { display: flex; align-items: center; gap: .5rem; padding: .75rem 1rem; background: var(--c, #333); }
 .col-name { font-size: 1.5rem; font-weight: 700; }
 .step { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; }
@@ -86,3 +90,19 @@ body.kiosk { overflow: hidden; height: 100vh; }
   font-size: 3rem; font-weight: 800; cursor: pointer; }
 .waiting { flex: 1; display: grid; place-content: center; text-align: center; color: var(--muted); }
 .waiting-mark { font-size: 4rem; color: var(--ok); }
+
+/* run summary — shown when a child's track finishes (spec §7) */
+.summary { flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: .5rem; padding: 1rem; overflow-y: auto; }
+.summary-stars { font-size: 2.5rem; letter-spacing: .1rem; }
+.summary-sub { color: var(--muted); margin: 0 0 .5rem; }
+.summary-steps { list-style: none; padding: 0; margin: 0; width: 100%; max-width: 22rem;
+  display: flex; flex-direction: column; gap: .4rem; }
+.summary-step { display: flex; align-items: center; gap: .5rem; background: #1c1f26;
+  border-radius: .5rem; padding: .5rem .75rem; font-size: .95rem; }
+.summary-step-icon { font-size: 1.3rem; }
+.summary-step-title { flex: 1; }
+.summary-step-time { font-variant-numeric: tabular-nums; color: var(--fg); }
+.summary-step-time small { color: var(--muted); }
+.summary-step-stars { color: #e5a13a; letter-spacing: .05rem; }
+.summary-step-note { color: var(--muted); font-size: .85rem; }

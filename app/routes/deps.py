@@ -24,6 +24,17 @@ _TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
 
+def _fmt_mmss(seconds: int | float | None) -> str:
+    """Render a duration in seconds as ``m:ss`` for run-summary displays."""
+    if seconds is None:
+        return "—"
+    total = max(0, int(seconds))
+    return f"{total // 60}:{total % 60:02d}"
+
+
+templates.env.filters["mmss"] = _fmt_mmss
+
+
 def get_config(request: Request) -> Config:
     return request.app.state.config
 

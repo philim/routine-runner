@@ -53,6 +53,19 @@ def active_run(conn: Connection) -> Run | None:
     return Run.from_row(row) if row else None
 
 
+def last_closed_run(conn: Connection) -> Run | None:
+    """Most recently closed run, if any.
+
+    Used so the kiosk can keep showing a finished run's summary (stars, par
+    times) for a grace period instead of snapping straight to idle the instant
+    the run closes (§7).
+    """
+    row = conn.execute(
+        "SELECT * FROM runs WHERE state = 'closed' ORDER BY closed_at DESC LIMIT 1"
+    ).fetchone()
+    return Run.from_row(row) if row else None
+
+
 def run_children(conn: Connection, run_id: str) -> list[RunChild]:
     rows = conn.execute(
         "SELECT * FROM run_children WHERE run_id = ?", (run_id,)

@@ -1,0 +1,96 @@
+{# One child's column. Self-refreshes on its own SSE/poll trigger and is the
+   swap target for that child's check-in / DONE actions, so a tap on one side
+   never re-renders the other side. #}
+<div id="kiosk-colc-{{ col.child.id }}" class="col-body"
+     hx-get="/kiosk/column/{{ col.child.id }}"
+     hx-trigger="sse:state, every 3s"
+     hx-target="this" hx-swap="outerHTML">
+  <header class="col-head">
+    <span class="col-bar"></span>
+    <span class="col-name">{{ col.child.name }}</span>
+  </header>
+  {% if not col.checked_in %}
+    {% if col.run_closed %}
+      {# the routine ended before this child ever checked in — no point
+         offering a tile for a run that's over (spec §7) #}
+      <div class="waiting"><p>Didn't check in</p></div>
+    {% else %}
+      <form class="checkin-tile" hx-post="/kiosk/checkin"
+            hx-target="#kiosk-colc-{{ col.child.id }}" hx-swap="outerHTML">
+        <input type="hidden" name="child_id" value="{{ col.child.id }}">
+        <button type="submit" class="tile" style="--c: {{ col.child.colour }}">
+          <span class="tile-avatar">{{ col.child.avatar or col.child.name[0] }}</span>
+          <span class="tile-name">Tap to start</span>
+        </button>
+      </form>
+    {% endif %}
+  {% elif col.finished %}
+    {# run summary (spec §7): stars earned + each step's time vs par, shown
+       until the next run starts or the grace window (kiosk.py) expires #}
+    <div class="summary">
+      <div class="summary-stars">{{ '⭐' * col.run_child.stars if col.run_child.stars else '☆' }}</div>
+      <p class="summary-sub">
+        All done{% if col.run_child.total_seconds %} in {{ col.run_child.total_seconds|mmss }}{% endif %}
+      </p>
+      {% if col.steps %}
+      <ul class="summary-steps">
+        {% for s in col.steps %}
+        <li class="summary-step">
+          <span class="summary-step-icon">{{ s.icon or "•" }}</span>
+          <span class="summary-step-title">{{ s.title }}</span>
+          {% if s.state == "done" %}
+            <span class="summary-step-time">
+              {{ s.elapsed_seconds|mmss }}{% if s.par_seconds %} <small>/ {{ s.par_seconds|mmss }}</small>{% endif %}
+            </span>
+            <span class="summary-step-stars">{{ '⭐' * s.stars }}</span>
+          {% elif s.state == "skipped" %}
+            <span class="summary-step-note">Skipped</span>
+          {% else %}
+            <span class="summary-step-note">Not reached</span>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+  {% elif col.segment and col.segment.state == "gate_open" %}
+    <div class="gate-wait">
+      <div class="gate-icon">🔎</div>
+      <div class="step-title">{{ col.step.title }}</div>
+      <p class="gate-sub">Waiting for a grown-up…</p>
+      <form hx-post="/kiosk/gate-nudge" hx-swap="none">
+        <input type="hidden" name="segment_id" value="{{ col.segment.id }}">
+        <button type="submit" class="btn ask-again">Ask again</button>
+      </form>
+    </div>
+  {% elif col.segment and col.step %}
+    <div class="step">
+      <div class="step-icon">{{ col.step.icon or "•" }}</div>
+      <div class="step-title">{{ col.step.title }}</div>
+      <div class="ring-wrap">
+        <svg class="ring" viewBox="0 0 120 120"
+             data-started="{{ col.segment.first_started_at }}"
+             data-par="{{ col.segment.par_seconds or 0 }}"
+             data-mode="{{ col.child.display_mode }}">
+          <circle class="ring-track" cx="60" cy="60" r="52"></circle>
+          <circle class="ring-arc" cx="60" cy="60" r="52"></circle>
+          <text class="ring-text" x="60" y="60" text-anchor="middle"
+                dominant-baseline="central">0:00</text>
+        </svg>
+      </div>
+      <div class="dots">
+        {% for i in range(col.total) %}
+          <span class="dot {{ 'on' if i < col.done else '' }}"></span>
+        {% endfor %}
+      </div>
+    </div>
+    <form hx-post="/kiosk/complete" hx-target="#kiosk-colc-{{ col.child.id }}"
+          hx-swap="outerHTML" class="done-form">
+      <input type="hidden" name="child_id" value="{{ col.child.id }}">
+      <input type="hidden" name="segment_id" value="{{ col.segment.id }}">
+      <button type="submit" class="done-btn">DONE</button>
+    </form>
+  {% else %}
+    <div class="waiting"><p>…</p></div>
+  {% endif %}
+</div>

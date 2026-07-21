@@ -70,4 +70,10 @@
   }
   setInterval(tick, 250);
   tick();
+
+  // Recompute rings immediately after any HTMX swap (e.g. a column refreshing
+  // itself) so a freshly-rendered ring never flashes back to 0:00 before the
+  // next interval — each child's timer stays visually stable and independent.
+  document.body.addEventListener("htmx:afterSettle", tick);
+  document.body.addEventListener("htmx:load", tick);
 })();

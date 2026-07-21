@@ -1,0 +1,6 @@
+<div role="alert" class="alert alert-warning shadow-md flex-wrap">
+  <span>A run is already in progress{% if run %} — someone beat you to it{% endif %}.</span>
+  {% if run %}
+  <a class="btn btn-sm" href="/runs/{{ run.id }}/live">Open live view</a>
+  {% endif %}
+</div>
