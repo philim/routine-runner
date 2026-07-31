@@ -289,9 +289,15 @@ def complete(
             # idempotent: ignore replays of an already-closed segment (§8.3)
             if seg is not None and seg.state == "active":
                 at = _sanitise_client_ts(client_ts, seg.first_started_at)
-                nxt = run_service.complete_segment(conn, run.id, child_id, segment_id, at)
-                if nxt is not None and nxt.state == "gate_open":
-                    _on_gate_opened(request, config, nxt)
+                try:
+                    nxt = run_service.complete_segment(conn, run.id, child_id, segment_id, at)
+                except run_service.DebounceError:
+                    # a task can't be completed within 30s of starting; silently
+                    # ignore the touch rather than surface an error to the child
+                    pass
+                else:
+                    if nxt is not None and nxt.state == "gate_open":
+                        _on_gate_opened(request, config, nxt)
         col = build_column(conn, child_id)
     _publish_kiosk_update(config)
     return _render_column(request, col)

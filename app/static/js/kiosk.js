@@ -17,6 +17,21 @@
   const R = 52;
   const CIRC = 2 * Math.PI * R;
 
+  // Server debounces completions under MIN_TASK_SECONDS; this only disables the
+  // button so a child gets visual feedback instead of a silently-ignored tap.
+  const MIN_TASK_SECONDS = 30;
+
+  function tickDoneButtons() {
+    const now = Date.now();
+    document.querySelectorAll(".done-btn[data-debounce-until]").forEach((btn) => {
+      const started = parseInt(btn.dataset.debounceUntil, 10);
+      if (!started) return;
+      const ready = (now - started) / 1000 >= MIN_TASK_SECONDS;
+      btn.disabled = !ready;
+      btn.classList.toggle("done-btn-waiting", !ready);
+    });
+  }
+
   function fmt(sec) {
     const m = Math.floor(sec / 60);
     const s = sec % 60;
@@ -68,12 +83,16 @@
       }
     });
   }
-  setInterval(tick, 250);
-  tick();
+  function tickAll() {
+    tick();
+    tickDoneButtons();
+  }
+  setInterval(tickAll, 250);
+  tickAll();
 
-  // Recompute rings immediately after any HTMX swap (e.g. a column refreshing
-  // itself) so a freshly-rendered ring never flashes back to 0:00 before the
+  // Recompute immediately after any HTMX swap (e.g. a column refreshing
+  // itself) so a freshly-rendered ring/button never flashes stale before the
   // next interval — each child's timer stays visually stable and independent.
-  document.body.addEventListener("htmx:afterSettle", tick);
-  document.body.addEventListener("htmx:load", tick);
+  document.body.addEventListener("htmx:afterSettle", tickAll);
+  document.body.addEventListener("htmx:load", tickAll);
 })();

@@ -2,8 +2,28 @@
 
 from __future__ import annotations
 
+import pytest
+
 from app.db.instance_db import instance_conn
-from app.services import run_service
+from app.services import clock, run_service
+
+
+class FakeClock:
+    def __init__(self, start=5_000_000):
+        self.t = start
+
+    def advance(self, seconds):
+        self.t += seconds * 1000
+
+    def now_ms(self):
+        return self.t
+
+
+@pytest.fixture
+def fc(monkeypatch):
+    c = FakeClock()
+    monkeypatch.setattr(clock, "now_ms", c.now_ms)
+    return c
 
 
 def _seg_by_pos(conn, run_id, child_id, pos):
@@ -14,7 +34,7 @@ def _seg_by_pos(conn, run_id, child_id, pos):
     return row
 
 
-def test_no_untimed_gap_between_segments(seeded, bedtime_routine_id, children):
+def test_no_untimed_gap_between_segments(seeded, bedtime_routine_id, children, fc):
     child = children[0]["id"]
     with instance_conn(seeded) as conn:
         run = run_service.open_run(conn, bedtime_routine_id, "parent1")
@@ -24,6 +44,7 @@ def test_no_untimed_gap_between_segments(seeded, bedtime_routine_id, children):
         prev_positions = []
         while cur is not None:
             prev_positions.append(cur.position)
+            fc.advance(35)  # clear the completion debounce
             nxt = run_service.complete_segment(conn, run.id, child, cur.id)
             ended_row = conn.execute(
                 "SELECT ended_at FROM segments WHERE id=?", (cur.id,)
@@ -37,13 +58,13 @@ def test_no_untimed_gap_between_segments(seeded, bedtime_routine_id, children):
         assert prev_positions == [0, 1, 2]
 
 
-def test_track_and_run_complete_on_last_done(seeded, bedtime_routine_id, children):
+def test_track_and_run_complete_on_last_done(seeded, bedtime_routine_id, children, fc):
     child = children[0]["id"]
     with instance_conn(seeded) as conn:
         run = run_service.open_run(conn, bedtime_routine_id, "p")
-        seg = run_service.check_in(conn, run.id, child)
-        cur = seg
+        cur = run_service.check_in(conn, run.id, child)
         while cur is not None:
+            fc.advance(35)
             cur = run_service.complete_segment(conn, run.id, child, cur.id)
         rc = run_service.run_children(conn, run.id)[0]
         assert rc.state == "completed"
@@ -51,13 +72,13 @@ def test_track_and_run_complete_on_last_done(seeded, bedtime_routine_id, childre
         assert run_service.get_run(conn, run.id).state == "closed"
 
 
-def test_participation_stars_awarded_run1(seeded, bedtime_routine_id, children):
+def test_participation_stars_awarded_run1(seeded, bedtime_routine_id, children, fc):
     child = children[0]["id"]
     with instance_conn(seeded) as conn:
         run = run_service.open_run(conn, bedtime_routine_id, "p")
-        seg = run_service.check_in(conn, run.id, child)
-        cur = seg
+        cur = run_service.check_in(conn, run.id, child)
         while cur is not None:
+            fc.advance(35)
             cur = run_service.complete_segment(conn, run.id, child, cur.id)
         # one participation star per completed step (segment-level, before bonuses)
         seg_star_sum = conn.execute(
@@ -67,13 +88,14 @@ def test_participation_stars_awarded_run1(seeded, bedtime_routine_id, children):
         assert seg_star_sum == 3
 
 
-def test_two_tracks_independent(seeded, morning_routine_id, children):
+def test_two_tracks_independent(seeded, morning_routine_id, children, fc):
     a, b = children[0]["id"], children[1]["id"]
     with instance_conn(seeded) as conn:
         run = run_service.open_run(conn, morning_routine_id, "p")
         sa = run_service.check_in(conn, run.id, a)
         run_service.check_in(conn, run.id, b)
         # advance A once; B stays on segment 1
+        fc.advance(35)
         run_service.complete_segment(conn, run.id, a, sa.id)
         cur_a = run_service.current_segment(conn, run.id, a)
         cur_b = run_service.current_segment(conn, run.id, b)
@@ -81,6 +103,25 @@ def test_two_tracks_independent(seeded, morning_routine_id, children):
         assert cur_b.position == 0
         # run still active (B not done)
         assert run_service.get_run(conn, run.id).state == "active"
+
+
+def test_completion_debounced_under_30s(seeded, bedtime_routine_id, children, fc):
+    child = children[0]["id"]
+    with instance_conn(seeded) as conn:
+        run = run_service.open_run(conn, bedtime_routine_id, "p")
+        seg = run_service.check_in(conn, run.id, child)
+        fc.advance(29)
+        with pytest.raises(run_service.DebounceError):
+            run_service.complete_segment(conn, run.id, child, seg.id)
+        # segment is still active — the touch was rejected, not consumed
+        still = run_service._get_segment(conn, seg.id)
+        assert still.state == "active"
+        # at exactly 30s it succeeds
+        fc.advance(1)
+        nxt = run_service.complete_segment(conn, run.id, child, seg.id)
+        done = run_service._get_segment(conn, seg.id)
+        assert done.state == "done"
+        assert nxt is not None
 
 
 def test_skip_excludes_and_advances(seeded, morning_routine_id, children):

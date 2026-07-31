@@ -2,12 +2,33 @@
 
 from __future__ import annotations
 
+import pytest
+
 from app.db.instance_db import instance_conn
-from app.services import run_service
+from app.services import clock, run_service
+
+
+class FakeClock:
+    def __init__(self):
+        self.t = clock.now_ms()  # anchor to a realistic starting point
+
+    def advance(self, seconds):
+        self.t += seconds * 1000
+
+    def now_ms(self):
+        return self.t
+
+
+@pytest.fixture
+def fc(monkeypatch):
+    """Deterministic clock so completions can clear the 30s debounce without sleeping."""
+    c = FakeClock()
+    monkeypatch.setattr(clock, "now_ms", c.now_ms)
+    return c
 
 
 def test_full_morning_run_over_http(parent_client, kiosk_client, seeded,
-                                    morning_routine_id, children):
+                                    morning_routine_id, children, fc):
     # parent starts the run
     r = parent_client.post("/runs", data={"routine_id": morning_routine_id})
     assert r.status_code == 200
@@ -43,6 +64,7 @@ def test_full_morning_run_over_http(parent_client, kiosk_client, seeded,
             r = parent_client.post(f"/gates/{cur.id}/approve", data={"quality_stars": 2})
             assert r.status_code == 200
         else:
+            fc.advance(35)  # clear the completion debounce
             r = kiosk_client.post(
                 "/kiosk/complete", data={"child_id": a, "segment_id": cur.id}
             )
@@ -102,7 +124,7 @@ def test_children_check_in_and_run_independently(parent_client, kiosk_client, se
 
 def test_one_childs_action_does_not_touch_the_other_column(parent_client, kiosk_client,
                                                            seeded, morning_routine_id,
-                                                           children):
+                                                           children, fc):
     a, b = children[0]["id"], children[1]["id"]
     parent_client.post("/runs", data={"routine_id": morning_routine_id})
     kiosk_client.post("/kiosk/checkin", data={"child_id": a})
@@ -113,6 +135,7 @@ def test_one_childs_action_does_not_touch_the_other_column(parent_client, kiosk_
         seg_a = run_service.current_segment(conn, run.id, a)
 
     # completing A's step returns ONLY A's column fragment, not B's
+    fc.advance(35)  # clear the completion debounce
     r = kiosk_client.post("/kiosk/complete", data={"child_id": a, "segment_id": seg_a.id})
     assert r.status_code == 200
     assert f'id="kiosk-colc-{a}"' in r.text
@@ -120,13 +143,14 @@ def test_one_childs_action_does_not_touch_the_other_column(parent_client, kiosk_
 
 
 def test_complete_is_idempotent(parent_client, kiosk_client, seeded,
-                                morning_routine_id, children):
+                                morning_routine_id, children, fc):
     a = children[0]["id"]
     parent_client.post("/runs", data={"routine_id": morning_routine_id})
     kiosk_client.post("/kiosk/checkin", data={"child_id": a})
     with instance_conn(seeded) as conn:
         run = run_service.active_run(conn)
         cur = run_service.current_segment(conn, run.id, a)
+    fc.advance(35)  # clear the completion debounce
     # send the same completion twice; the second is ignored
     kiosk_client.post("/kiosk/complete", data={"child_id": a, "segment_id": cur.id})
     kiosk_client.post("/kiosk/complete", data={"child_id": a, "segment_id": cur.id})
@@ -134,6 +158,24 @@ def test_complete_is_idempotent(parent_client, kiosk_client, seeded,
         after = run_service.current_segment(conn, run.id, a)
     # advanced exactly one step, not two
     assert after.position == 1
+
+
+def test_completion_within_30s_is_silently_ignored(
+    parent_client, kiosk_client, seeded, morning_routine_id, children
+):
+    """A too-fast tap doesn't error the kiosk — it just doesn't advance (debounce)."""
+    a = children[0]["id"]
+    parent_client.post("/runs", data={"routine_id": morning_routine_id})
+    kiosk_client.post("/kiosk/checkin", data={"child_id": a})
+    with instance_conn(seeded) as conn:
+        run = run_service.active_run(conn)
+        cur = run_service.current_segment(conn, run.id, a)
+    r = kiosk_client.post("/kiosk/complete", data={"child_id": a, "segment_id": cur.id})
+    assert r.status_code == 200  # no error surfaced to the kiosk
+    with instance_conn(seeded) as conn:
+        still = run_service.current_segment(conn, run.id, a)
+    assert still.id == cur.id
+    assert still.state == "active"
 
 
 def test_live_view_survives_run_closing(parent_client, kiosk_client, seeded,
@@ -173,7 +215,7 @@ def test_double_close_is_a_no_op_not_a_500(parent_client, seeded, morning_routin
 
 
 def test_skip_on_already_resolved_segment_is_a_no_op_not_a_500(
-    parent_client, kiosk_client, seeded, morning_routine_id, children
+    parent_client, kiosk_client, seeded, morning_routine_id, children, fc
 ):
     a = children[0]["id"]
     parent_client.post("/runs", data={"routine_id": morning_routine_id})
@@ -183,6 +225,7 @@ def test_skip_on_already_resolved_segment_is_a_no_op_not_a_500(
         cur = run_service.current_segment(conn, run.id, a)
     # kiosk completes the step itself (simulating a race with a parent's stale
     # "Skip" button already rendered for that same segment)
+    fc.advance(35)  # clear the completion debounce
     kiosk_client.post("/kiosk/complete", data={"child_id": a, "segment_id": cur.id})
 
     r = parent_client.post(f"/segments/{cur.id}/skip")
@@ -218,7 +261,7 @@ def test_starting_a_second_run_is_a_friendly_conflict_not_a_500(
     assert n == 1
 
 
-def _complete_full_track(client, seeded, run_id, child_id, approve_client):
+def _complete_full_track(client, seeded, run_id, child_id, approve_client, fc=None):
     """Drive one child's entire track to completion over HTTP (helper for the
     summary tests below)."""
     for _ in range(20):
@@ -229,18 +272,20 @@ def _complete_full_track(client, seeded, run_id, child_id, approve_client):
         if cur.state == "gate_open":
             approve_client.post(f"/gates/{cur.id}/approve", data={"quality_stars": 2})
         else:
+            if fc is not None:
+                fc.advance(35)  # clear the completion debounce
             client.post("/kiosk/complete", data={"child_id": child_id, "segment_id": cur.id})
 
 
 def test_kiosk_shows_run_summary_with_stars_and_step_times_when_finished(
-    parent_client, kiosk_client, seeded, morning_routine_id, children
+    parent_client, kiosk_client, seeded, morning_routine_id, children, fc
 ):
     a = children[0]["id"]
     parent_client.post("/runs", data={"routine_id": morning_routine_id})
     with instance_conn(seeded) as conn:
         run = run_service.active_run(conn)
     kiosk_client.post("/kiosk/checkin", data={"child_id": a})
-    _complete_full_track(kiosk_client, seeded, run.id, a, parent_client)
+    _complete_full_track(kiosk_client, seeded, run.id, a, parent_client, fc)
 
     col = kiosk_client.get(f"/kiosk/column/{a}")
     assert col.status_code == 200
@@ -252,7 +297,7 @@ def test_kiosk_shows_run_summary_with_stars_and_step_times_when_finished(
 
 
 def test_kiosk_summary_survives_run_closing_then_expires_after_grace_window(
-    parent_client, kiosk_client, seeded, morning_routine_id, children
+    parent_client, kiosk_client, seeded, morning_routine_id, children, fc
 ):
     """The kiosk keeps showing a finished run's stars/par summary for a grace
     period after it closes (spec §7), instead of snapping straight to idle."""
@@ -261,7 +306,7 @@ def test_kiosk_summary_survives_run_closing_then_expires_after_grace_window(
     with instance_conn(seeded) as conn:
         run = run_service.active_run(conn)
     kiosk_client.post("/kiosk/checkin", data={"child_id": a})
-    _complete_full_track(kiosk_client, seeded, run.id, a, parent_client)
+    _complete_full_track(kiosk_client, seeded, run.id, a, parent_client, fc)
 
     # parent ends the run early; child B never checked in
     parent_client.post(f"/runs/{run.id}/close")

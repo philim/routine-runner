@@ -88,7 +88,8 @@
           hx-swap="outerHTML" class="done-form">
       <input type="hidden" name="child_id" value="{{ col.child.id }}">
       <input type="hidden" name="segment_id" value="{{ col.segment.id }}">
-      <button type="submit" class="done-btn">DONE</button>
+      <button type="submit" class="done-btn"
+              data-debounce-until="{{ col.segment.first_started_at }}">DONE</button>
     </form>
   {% else %}
     <div class="waiting"><p>…</p></div>

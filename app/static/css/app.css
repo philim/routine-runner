@@ -87,7 +87,8 @@ body.kiosk { overflow: hidden; height: 100vh; }
 .dot.on { background: var(--ok); }
 .done-form { display: flex; }
 .done-btn { flex: 1; height: 45vh; border: none; background: var(--ok); color: #fff;
-  font-size: 3rem; font-weight: 800; cursor: pointer; }
+  font-size: 3rem; font-weight: 800; cursor: pointer; transition: background .2s, opacity .2s; }
+.done-btn:disabled, .done-btn-waiting { background: #3a3f47; opacity: .6; cursor: not-allowed; }
 .waiting { flex: 1; display: grid; place-content: center; text-align: center; color: var(--muted); }
 .waiting-mark { font-size: 4rem; color: var(--ok); }
 

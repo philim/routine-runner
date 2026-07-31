@@ -25,6 +25,17 @@ class RunError(Exception):
     pass
 
 
+class DebounceError(RunError):
+    """Raised when a task is completed too soon after its attempt started.
+
+    Callers (the kiosk route) should treat this as a silently-ignored touch,
+    not an error surfaced to the child.
+    """
+
+
+MIN_TASK_SECONDS = 30
+
+
 # --- events -----------------------------------------------------------------
 
 def _record_event(
@@ -111,6 +122,15 @@ def _open_attempt(conn: Connection, segment_id: str, at: int) -> None:
     conn.execute(
         "UPDATE segments SET attempt_count = ? WHERE id = ?", (attempt_no, segment_id)
     )
+
+
+def _open_attempt_started_at(conn: Connection, segment_id: str) -> int | None:
+    row = conn.execute(
+        "SELECT started_at FROM segment_attempts WHERE segment_id = ? AND ended_at IS NULL "
+        "ORDER BY attempt_no DESC LIMIT 1",
+        (segment_id,),
+    ).fetchone()
+    return row["started_at"] if row else None
 
 
 def _close_attempt(conn: Connection, segment_id: str, at: int) -> int:
@@ -243,7 +263,12 @@ def check_in(conn: Connection, run_id: str, child_id: str) -> Segment:
 def complete_segment(
     conn: Connection, run_id: str, child_id: str, segment_id: str, at_ms: int | None = None
 ) -> Segment | None:
-    """Close the active task segment and open the next step. Returns it, or None if done."""
+    """Close the active task segment and open the next step. Returns it, or None if done.
+
+    Debounced: a task cannot be completed less than ``MIN_TASK_SECONDS`` after its
+    current attempt started (kiosk taps this fast are spam/mis-taps, not genuine
+    completions). Raises :class:`DebounceError` in that case.
+    """
     seg = _get_segment(conn, segment_id)
     if seg is None or seg.run_id != run_id or seg.child_id != child_id:
         raise RunError("segment not found on this track")
@@ -251,6 +276,13 @@ def complete_segment(
         raise RunError(f"segment not active (state={seg.state})")
 
     ended = at_ms if at_ms is not None else clock.now_ms()
+    attempt_started = _open_attempt_started_at(conn, segment_id)
+    if attempt_started is not None and (ended - attempt_started) < MIN_TASK_SECONDS * 1000:
+        raise DebounceError(
+            f"segment {segment_id} completed too soon "
+            f"({(ended - attempt_started) / 1000:.1f}s < {MIN_TASK_SECONDS}s)"
+        )
+
     reconciled = 1 if at_ms is not None else 0
     elapsed = _close_attempt(conn, segment_id, ended)
     stars = scoring_service.segment_stars(elapsed, seg.par_seconds)
