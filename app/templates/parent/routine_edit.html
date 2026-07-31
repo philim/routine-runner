@@ -1,0 +1,56 @@
+{% extends "admin_base.html" %}
+{% block title %}Edit {{ routine.name }}{% endblock %}
+{% block admin_content %}
+<div class="flex items-center justify-between mb-1 flex-wrap gap-2">
+  <h1 class="text-2xl sm:text-3xl font-bold capitalize">{{ routine.name }}</h1>
+  <a class="link link-hover text-sm" href="/routines">← All routines</a>
+</div>
+<p class="text-base-content/60 mb-4">
+  A gate is a blocking check — it returns the child to an earlier task on
+  rejection, so pick where a gate should send a redo before adding it (§6.4).
+</p>
+
+{% include "partials/steps_table.html" %}
+
+<div class="card bg-base-100 shadow-sm mt-4">
+  <div class="card-body">
+    <h2 class="card-title text-base">Add a step</h2>
+    <form hx-post="/routines/{{ routine.id }}/steps" hx-target="#steps-table" hx-swap="outerHTML"
+          hx-on::after-request="if(event.detail.successful) this.reset()"
+          class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <label class="form-control">
+        <span class="label-text">Icon</span>
+        <input name="icon" placeholder="🪥" class="input input-bordered input-sm">
+      </label>
+      <label class="form-control">
+        <span class="label-text">Title</span>
+        <input name="title" required placeholder="Brush teeth" class="input input-bordered input-sm">
+      </label>
+      <label class="form-control">
+        <span class="label-text">Kind</span>
+        <select name="kind" id="add-step-kind" class="select select-bordered select-sm"
+                onchange="document.getElementById('add-step-floor-row').style.display = this.value === 'task' ? '' : 'none'; document.getElementById('add-step-gate-row').style.display = this.value === 'gate' ? '' : 'none';">
+          <option value="task">Task — timed, DONE button</option>
+          <option value="gate">Gate — parent check, blocking</option>
+        </select>
+      </label>
+      <label class="form-control" id="add-step-floor-row">
+        <span class="label-text">Floor time (minimum, seconds)</span>
+        <input name="floor_seconds" type="number" min="0" step="15" value="30"
+               class="input input-bordered input-sm">
+      </label>
+      <label class="form-control" id="add-step-gate-row" style="display:none">
+        <span class="label-text">Returns to (on rejection)</span>
+        <select name="on_reject_step_id" class="select select-bordered select-sm">
+          {% for t in task_steps %}
+          <option value="{{ t.id }}">{{ t.title }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="sm:col-span-2">
+        <button class="btn btn-primary btn-sm" type="submit">Add step</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

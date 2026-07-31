@@ -326,3 +326,39 @@ def test_kiosk_summary_survives_run_closing_then_expires_after_grace_window(
     stale_board = kiosk_client.get("/kiosk/state")
     assert stale_board.status_code == 200
     assert "Waiting for a routine to start" in stale_board.text
+
+
+def test_kiosk_summary_shows_lifetime_star_total_across_runs(
+    parent_client, kiosk_client, seeded, bedtime_routine_id, children, fc
+):
+    """The finished-run summary shows a running total across every past run,
+    not just the one that just finished."""
+    a = children[0]["id"]
+
+    def run_once():
+        parent_client.post("/runs", data={"routine_id": bedtime_routine_id})
+        with instance_conn(seeded) as conn:
+            run = run_service.active_run(conn)
+        kiosk_client.post("/kiosk/checkin", data={"child_id": a})
+        _complete_full_track(kiosk_client, seeded, run.id, a, parent_client, fc)
+        return run.id
+
+    run1_id = run_once()
+    with instance_conn(seeded) as conn:
+        run1_stars = [
+            rc for rc in run_service.run_children(conn, run1_id) if rc.child_id == a
+        ][0].stars
+
+    col1 = kiosk_client.get(f"/kiosk/column/{a}")
+    assert f"{run1_stars} stars total" in col1.text
+
+    run2_id = run_once()
+    with instance_conn(seeded) as conn:
+        run2_stars = [
+            rc for rc in run_service.run_children(conn, run2_id) if rc.child_id == a
+        ][0].stars
+
+    col2 = kiosk_client.get(f"/kiosk/column/{a}")
+    assert f"{run1_stars + run2_stars} stars total" in col2.text
+    # the total is cumulative, not just the latest run's figure
+    assert run2_stars != run1_stars + run2_stars

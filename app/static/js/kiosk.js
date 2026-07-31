@@ -25,7 +25,7 @@
   // How long the "up next" splash holds before revealing the ring (client-side
   // only — the real par countdown is unaffected and keeps running the whole
   // time, spec §5.1: no untimed transitions).
-  const SPLASH_MS = 1500;
+  const SPLASH_MS = 3000;
 
   // --- clock skew (spec §5.7) -------------------------------------------
   // Every kiosk response embeds the server's clock in a data-server-now

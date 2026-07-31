@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import INSECURE_JWT_SECRET, load_config
 from app.db import main_db
 from app.jobs import scheduler as scheduler_job
-from app.routes import enrol, events, kiosk, parent, parent_auth
+from app.routes import config_routes, enrol, events, kiosk, parent, parent_auth
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -48,6 +48,7 @@ def create_app() -> FastAPI:
     app.include_router(enrol.router)
     app.include_router(parent_auth.router)
     app.include_router(parent.router)
+    app.include_router(config_routes.router)
     app.include_router(kiosk.router)
     app.include_router(events.router)
     return app

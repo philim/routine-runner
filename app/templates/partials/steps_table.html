@@ -1,0 +1,94 @@
+<div id="steps-table">
+  <div class="overflow-x-auto card bg-base-100 shadow-sm">
+    <table class="table">
+      <thead>
+        <tr>
+          <th></th><th>Step</th><th>Kind</th><th>Floor / redo target</th><th></th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in steps %}
+        <tr class="{{ 'opacity-50' if not s.active else '' }}">
+          <td class="whitespace-nowrap">
+            <form hx-post="/steps/{{ s.id }}/move" hx-target="#steps-table"
+                  hx-swap="outerHTML" class="inline">
+              <input type="hidden" name="direction" value="up">
+              <button class="btn btn-xs btn-ghost" type="submit" title="Move up"
+                      {{ 'disabled' if loop.first else '' }}>▲</button>
+            </form>
+            <form hx-post="/steps/{{ s.id }}/move" hx-target="#steps-table"
+                  hx-swap="outerHTML" class="inline">
+              <input type="hidden" name="direction" value="down">
+              <button class="btn btn-xs btn-ghost" type="submit" title="Move down"
+                      {{ 'disabled' if loop.last else '' }}>▼</button>
+            </form>
+          </td>
+          <td>
+            <form hx-post="/steps/{{ s.id }}" hx-target="#steps-table" hx-swap="outerHTML"
+                  class="flex flex-wrap gap-1 items-center">
+              <input name="icon" value="{{ s.icon or '' }}" placeholder="🙂"
+                     class="input input-bordered input-xs w-14 text-center">
+              <input name="title" value="{{ s.title }}" required
+                     class="input input-bordered input-xs flex-1 min-w-[8rem]">
+              {% if s.kind == "gate" %}
+              <select name="on_reject_step_id" class="select select-bordered select-xs">
+                {% for t in task_steps %}
+                  {% if t.position < s.position %}
+                  <option value="{{ t.id }}" {{ 'selected' if t.id == s.on_reject_step_id else '' }}>
+                    {{ t.title }}
+                  </option>
+                  {% endif %}
+                {% endfor %}
+              </select>
+              {% endif %}
+              <button class="btn btn-xs" type="submit">Save</button>
+            </form>
+          </td>
+          <td>
+            <span class="badge {{ 'badge-warning' if s.kind == 'gate' else 'badge-ghost' }}">
+              {{ s.kind }}
+            </span>
+          </td>
+          <td class="whitespace-nowrap">
+            {% if s.kind == "task" %}
+            <span class="font-mono">{{ (s.floor_seconds // 60) }}:{{ '%02d' % (s.floor_seconds % 60) }}</span>
+            <form hx-post="/steps/{{ s.id }}/floor" hx-target="#steps-table" hx-swap="outerHTML" class="inline">
+              <input type="hidden" name="delta" value="-15">
+              <button class="btn btn-xs btn-ghost" type="submit" title="-15s">−</button>
+            </form>
+            <form hx-post="/steps/{{ s.id }}/floor" hx-target="#steps-table" hx-swap="outerHTML" class="inline">
+              <input type="hidden" name="delta" value="15">
+              <button class="btn btn-xs btn-ghost" type="submit" title="+15s">+</button>
+            </form>
+            {% else %}
+              {% set target = task_steps | selectattr("id", "equalto", s.on_reject_step_id) | first %}
+              <span class="text-base-content/60">→ {{ target.title if target else "—" }}</span>
+            {% endif %}
+          </td>
+          <td class="whitespace-nowrap">
+            {% if s.kind == "task" %}
+            <form hx-post="/steps/{{ s.id }}/duplicate" hx-target="#steps-table" hx-swap="outerHTML" class="inline">
+              <button class="btn btn-xs btn-ghost" type="submit">Duplicate</button>
+            </form>
+            {% endif %}
+          </td>
+          <td class="text-right whitespace-nowrap">
+            <form hx-post="/steps/{{ s.id }}/toggle" hx-target="#steps-table" hx-swap="outerHTML" class="inline">
+              <input type="hidden" name="active" value="{{ 'false' if s.active else 'true' }}">
+              <button class="btn btn-xs {{ 'btn-error btn-outline' if s.active else '' }}" type="submit">
+                {{ 'Disable' if s.active else 'Enable' }}
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" class="text-center text-base-content/60 py-6">
+            No steps yet — add one below.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

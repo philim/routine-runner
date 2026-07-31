@@ -39,6 +39,9 @@
       <p class="summary-sub">
         All done{% if col.run_child.total_seconds %} in {{ col.run_child.total_seconds|mmss }}{% endif %}
       </p>
+      {% if col.lifetime_stars is not none %}
+      <p class="summary-lifetime">🏆 {{ col.lifetime_stars }} stars total</p>
+      {% endif %}
       {% if col.steps %}
       <ul class="summary-steps">
         {% for s in col.steps %}

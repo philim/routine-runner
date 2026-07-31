@@ -116,6 +116,21 @@ def _step_breakdown(conn: Connection, run_id: str, child_id: str) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def _lifetime_stars(conn: Connection, child_id: str) -> int:
+    """All-time star total for a child, across every run of every routine.
+
+    ``run_children.stars`` is finalised whenever a track completes — including
+    a forced early close (``run_service.close_run`` completes every track
+    before closing) — so a plain sum is accurate regardless of how each run
+    ended.
+    """
+    row = conn.execute(
+        "SELECT COALESCE(SUM(stars), 0) AS total FROM run_children WHERE child_id = ?",
+        (child_id,),
+    ).fetchone()
+    return row["total"]
+
+
 def _column_context(conn: Connection, run, child_row, checked_in: dict) -> dict:
     """Build the render context for a single child's column.
 
@@ -135,6 +150,7 @@ def _column_context(conn: Connection, run, child_row, checked_in: dict) -> dict:
         "done": 0,
         "finished": False,
         "steps": None,
+        "lifetime_stars": None,
         "run_closed": run.state in ("closed", "abandoned"),
     }
     if rc is None:
@@ -152,8 +168,10 @@ def _column_context(conn: Connection, run, child_row, checked_in: dict) -> dict:
     col["done"] = sum(1 for s in segs if s.state in ("done", "skipped", "incomplete"))
     col["finished"] = rc.state == "completed"
     if col["finished"]:
-        # run summary (spec §7): each step's time vs par and stars earned
+        # run summary (spec §7): each step's time vs par and stars earned,
+        # plus the child's all-time star total across every run
         col["steps"] = _step_breakdown(conn, run.id, child_row["id"])
+        col["lifetime_stars"] = _lifetime_stars(conn, child_row["id"])
     elif cur is not None and cur.state == "active":
         col["ring"] = _ring_context(cur, child_row["display_mode"], clock.now_ms())
     return col

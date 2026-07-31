@@ -1,0 +1,52 @@
+{% extends "admin_base.html" %}
+{% block title %}Routines{% endblock %}
+{% block admin_content %}
+<h1 class="text-2xl sm:text-3xl font-bold mb-1">Routines</h1>
+<p class="text-base-content/60 mb-4">
+  Add and edit steps here. Editing never affects a run already in progress —
+  each run snapshots its step list the moment a child checks in.
+</p>
+
+<div class="space-y-3 mb-6">
+  {% for r in routines %}
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body flex-row items-center justify-between py-3 flex-wrap gap-2">
+      <div>
+        <h2 class="card-title capitalize">
+          {{ r.name }}
+          {% if not r.active %}<span class="badge badge-ghost">disabled</span>{% endif %}
+        </h2>
+      </div>
+      <div class="flex gap-2">
+        <a class="btn btn-sm btn-primary" href="/routines/{{ r.id }}/edit">Edit steps</a>
+        <form method="post" action="/routines/{{ r.id }}/toggle">
+          <input type="hidden" name="active" value="{{ 'false' if r.active else 'true' }}">
+          <button class="btn btn-sm btn-ghost" type="submit">
+            {{ 'Disable' if r.active else 'Enable' }}
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body items-center text-center text-base-content/60">
+      <p>No routines yet — add one below.</p>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="card bg-base-100 shadow-sm">
+  <div class="card-body">
+    <h2 class="card-title text-base">Add a routine</h2>
+    <form method="post" action="/routines" class="flex flex-wrap gap-2 items-end">
+      <label class="form-control flex-1 min-w-[10rem]">
+        <span class="label-text">Name</span>
+        <input name="name" required placeholder="e.g. weekend" class="input input-bordered input-sm">
+      </label>
+      <button class="btn btn-sm btn-primary" type="submit">Add routine</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
