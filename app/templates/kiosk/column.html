@@ -68,14 +68,25 @@
       <div class="step-icon">{{ col.step.icon or "•" }}</div>
       <div class="step-title">{{ col.step.title }}</div>
       <div class="ring-wrap">
+        {# Ring geometry is rendered server-side at its correct current value
+           (col.ring, computed in kiosk.py) rather than left at the SVG
+           default. A fresh element inserted via hx-swap="outerHTML" has no
+           prior inline style to transition from — if it started blank/zero
+           (looking like a just-reset ring) the CSS transition would visibly
+           animate away from that wrong state on every swap, including a
+           harmless debounced tap. Starting correct means there's nothing to
+           animate away from; kiosk.js's tick() just keeps it live from here. #}
         <svg class="ring" viewBox="0 0 120 120"
              data-started="{{ col.segment.first_started_at }}"
              data-par="{{ col.segment.par_seconds or 0 }}"
-             data-mode="{{ col.child.display_mode }}">
+             data-mode="{{ col.child.display_mode }}"
+             data-state="{{ col.ring.state }}">
           <circle class="ring-track" cx="60" cy="60" r="52"></circle>
-          <circle class="ring-arc" cx="60" cy="60" r="52"></circle>
+          <circle class="ring-arc" cx="60" cy="60" r="52"
+                  style="stroke-dasharray: {{ col.ring.circumference }}; stroke-dashoffset: {{ col.ring.dashoffset }};"></circle>
           <text class="ring-text" x="60" y="60" text-anchor="middle"
-                dominant-baseline="central">0:00</text>
+                dominant-baseline="central"
+                style="display: {{ '' if col.ring.text_visible else 'none' }};">{{ col.ring.text }}</text>
         </svg>
       </div>
       <div class="dots">

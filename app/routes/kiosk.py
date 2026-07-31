@@ -6,6 +6,7 @@ countdown rings arrive in later phases.
 
 from __future__ import annotations
 
+import math
 from sqlite3 import Connection
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -46,6 +47,62 @@ def _kiosk_channel() -> str:
 _SUMMARY_GRACE_MS = 10 * 60 * 1000
 
 
+# Countdown-ring geometry (spec §5.5, §5.6) — mirrors static/js/kiosk.js so the
+# server can render the *correct* initial ring state. A freshly-swapped SVG
+# node (every checkin/DONE/poll replaces the column via hx-swap="outerHTML")
+# has no prior inline stroke-dashoffset; if we left it at the browser default
+# (0, i.e. a full/"just started" ring) the CSS transition would visibly
+# animate from that wrong starting point to the real one on every swap —
+# looking exactly like the clock had reset. Rendering the true value up front
+# means there is nothing incorrect to animate away from.
+_RING_R = 52
+_RING_CIRC = 2 * math.pi * _RING_R
+
+
+def _ring_state_for(ratio: float) -> str:
+    if ratio < 0.75:
+        return "on_pace"
+    if ratio <= 1.0:
+        return "closing"
+    if ratio <= 1.5:
+        return "over"
+    return "stalled"
+
+
+def _mmss(total_seconds: int) -> str:
+    m, s = divmod(max(0, int(total_seconds)), 60)
+    return f"{m}:{s:02d}"
+
+
+def _ring_context(segment, display_mode: str, now_ms: int) -> dict:
+    """Countdown-ring render values for an active task segment's current instant."""
+    started = segment.first_started_at or now_ms
+    par = segment.par_seconds
+    elapsed = max(0, (now_ms - started) // 1000)
+    numeric = display_mode == "ring_numeric"
+
+    if par:
+        ratio = elapsed / par
+        remaining = max(0, par - elapsed)
+        frac = max(0.0, min(1.0, remaining / par))
+        dashoffset = _RING_CIRC * (1 - frac)
+        state = _ring_state_for(ratio)
+        text = _mmss(remaining) if ratio <= 1.0 else f"+{_mmss(elapsed - par)}"
+    else:
+        # run 1: no par yet — plain elapsed timer, neutral (spec §5.2)
+        dashoffset = 0
+        state = "none"
+        text = _mmss(elapsed)
+
+    return {
+        "circumference": round(_RING_CIRC, 3),
+        "dashoffset": round(dashoffset, 3),
+        "state": state,
+        "text": text if numeric else "",
+        "text_visible": numeric,
+    }
+
+
 def _step_breakdown(conn: Connection, run_id: str, child_id: str) -> list[dict]:
     """Per-task-step results for a finished track's summary (title, times, stars)."""
     rows = conn.execute(
@@ -73,6 +130,7 @@ def _column_context(conn: Connection, run, child_row, checked_in: dict) -> dict:
         "run_child": rc,
         "segment": None,
         "step": None,
+        "ring": None,
         "total": 0,
         "done": 0,
         "finished": False,
@@ -96,6 +154,8 @@ def _column_context(conn: Connection, run, child_row, checked_in: dict) -> dict:
     if col["finished"]:
         # run summary (spec §7): each step's time vs par and stars earned
         col["steps"] = _step_breakdown(conn, run.id, child_row["id"])
+    elif cur is not None and cur.state == "active":
+        col["ring"] = _ring_context(cur, child_row["display_mode"], clock.now_ms())
     return col
 
 
