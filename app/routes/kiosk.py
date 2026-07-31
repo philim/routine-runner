@@ -298,7 +298,12 @@ def _render_column(request: Request, col: dict | None) -> HTMLResponse:
     """
     if col is None:
         return HTMLResponse("")
-    ctx = {"request": request, "col": col}
+    # Embedded on every response so the kiosk can measure clock skew (spec
+    # §5.7) and render countdowns from server time, not the device's own
+    # clock — a drifting kiosk clock (plausible on the "retired Android
+    # phone" hardware in spec §3) would otherwise make kiosk.js's live tick
+    # visibly disagree with the value this same response just rendered.
+    ctx = {"request": request, "col": col, "now_ms": clock.now_ms()}
     return templates.TemplateResponse(request, "kiosk/column.html", ctx)
 
 

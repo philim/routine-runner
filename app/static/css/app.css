@@ -54,9 +54,24 @@ body.kiosk { overflow: hidden; height: 100vh; }
 .checkin-tile .tile { flex: 1; }
 .col-head { display: flex; align-items: center; gap: .5rem; padding: .75rem 1rem; background: var(--c, #333); }
 .col-name { font-size: 1.5rem; font-weight: 700; }
+.step-transition { flex: 1; display: flex; flex-direction: column; }
 .step { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; }
 .step-icon { font-size: 4rem; }
 .step-title { font-size: 2rem; text-align: center; padding: 0 1rem; }
+
+/* brief "up next" splash before a task's ring takes over (client-side only —
+   the par countdown is unaffected and keeps running throughout, spec §5.1) */
+.step-splash { display: none; }
+.step-transition.showing-splash .step-splash {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: .75rem; text-align: center; animation: splash-in .3s ease-out;
+}
+.step-transition.showing-splash .step { display: none; }
+.step-transition.showing-splash + .done-form { visibility: hidden; }
+.splash-icon { font-size: 5rem; }
+.splash-title { font-size: 2.2rem; font-weight: 700; text-align: center; padding: 0 1rem; }
+.splash-sub { color: var(--muted); font-size: 1.1rem; text-transform: uppercase; letter-spacing: .08em; }
+@keyframes splash-in { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: scale(1); } }
 .timer { font-size: 3rem; font-variant-numeric: tabular-nums; }
 
 /* countdown ring (spec §5.5, §5.6) */

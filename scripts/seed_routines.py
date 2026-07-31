@@ -16,7 +16,7 @@ from app.services.ids import new_id
 CHILDREN = [
     # name, colour, avatar, birth_year, display_mode
     ("Ada", "#4f8cff", "🦊", 2017, "ring_numeric"),  # age 8
-    ("Sam", "#e5a13a", "🐻", 2020, "ring"),           # age 5
+    ("Sam", "#e5a13a", "🐻", 2020, "ring_numeric"),  # age 5 — numeric shown for both
 ]
 
 # Each step: (title, icon, kind, on_reject_title). Gates name the earlier task
