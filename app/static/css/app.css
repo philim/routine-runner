@@ -36,6 +36,32 @@ body.kiosk { overflow: hidden; height: 100vh; }
 #kiosk-root, #kiosk-board { height: 100vh; }
 .idle { display: grid; place-content: center; height: 100vh; text-align: center; color: var(--muted); }
 .idle-clock { font-size: 2rem; }
+.idle-sub { margin-top: .5rem; }
+
+/* idle ambient stats wall (read-only): each child's stars, best times,
+   streaks and par times. No controls — glanceable, not a toy. */
+.idle-board { height: 100vh; }
+.idle-board .col { overflow: hidden; }
+.col-avatar { font-size: 1.8rem; }
+.idle-stats { flex: 1; display: flex; flex-direction: column; gap: .75rem;
+  padding: 1rem; overflow-y: auto; }
+.idle-stars { font-size: 1.7rem; font-weight: 800; color: #e5a13a; text-align: center;
+  font-variant-numeric: tabular-nums; }
+.idle-stars span { font-size: 1rem; color: var(--muted); font-weight: 600; }
+.idle-routine { background: #1c1f26; border-radius: .6rem; padding: .6rem .75rem; }
+.idle-routine-head { display: flex; flex-wrap: wrap; justify-content: space-between;
+  align-items: baseline; gap: .15rem .5rem; margin-bottom: .4rem; }
+.idle-routine-name { font-size: 1.15rem; font-weight: 700; text-transform: capitalize;
+  white-space: nowrap; }
+.idle-routine-meta { display: flex; gap: .75rem; color: var(--muted);
+  font-variant-numeric: tabular-nums; font-size: .95rem; white-space: nowrap; }
+.idle-steps { list-style: none; margin: 0; padding: 0; display: flex;
+  flex-direction: column; gap: .25rem; }
+.idle-step { display: flex; align-items: center; gap: .5rem; font-size: .95rem; }
+.idle-step-icon { width: 1.4rem; text-align: center; }
+.idle-step-title { flex: 1; min-width: 0; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+.idle-step-par { color: var(--muted); font-variant-numeric: tabular-nums; }
 
 .ready { height: 100vh; display: flex; flex-direction: column; }
 .ready-title { text-align: center; padding: 1rem; }

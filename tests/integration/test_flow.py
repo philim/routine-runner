@@ -379,7 +379,44 @@ def test_kiosk_summary_survives_run_closing_then_expires_after_grace_window(
         )
     stale_board = kiosk_client.get("/kiosk/state")
     assert stale_board.status_code == 200
-    assert "Waiting for a routine to start" in stale_board.text
+    # back to the ambient idle stats wall, not the just-closed run's summary
+    assert "idle-board" in stale_board.text
+    assert "Didn't check in" not in stale_board.text
+
+
+def test_idle_kiosk_shows_each_childs_stars_and_par_times(
+    parent_client, kiosk_client, seeded, bedtime_routine_id, children, fc
+):
+    """When no run is active the kiosk shows an ambient stats wall: every
+    child's column, their lifetime star total, and per-step par times — with
+    no controls (it's a wall display, not a toy)."""
+    a = children[0]["id"]
+    # one completed run so there are pars, records and stars to show
+    parent_client.post("/runs", data={"routine_id": bedtime_routine_id})
+    with instance_conn(seeded) as conn:
+        run = run_service.active_run(conn)
+    kiosk_client.post("/kiosk/checkin", data={"child_id": a})
+    _complete_full_track(kiosk_client, seeded, run.id, a, parent_client, fc)
+    parent_client.post(f"/runs/{run.id}/close")
+    # push past the summary grace window so the board is genuinely idle
+    with instance_conn(seeded) as conn:
+        closed = run_service.get_run(conn, run.id)
+        conn.execute(
+            "UPDATE runs SET closed_at = ? WHERE id = ?",
+            (closed.closed_at - 11 * 60 * 1000, run.id),
+        )
+
+    board = kiosk_client.get("/kiosk/state")
+    assert board.status_code == 200
+    assert "idle-board" in board.text
+    # every active child gets a column
+    for c in children:
+        assert c["name"] in board.text
+    # stars total and par times are on show; no interactive controls
+    assert "stars" in board.text
+    assert "idle-step-par" in board.text
+    assert "DONE" not in board.text
+    assert "Tap to start" not in board.text
 
 
 def test_kiosk_summary_shows_lifetime_star_total_across_runs(

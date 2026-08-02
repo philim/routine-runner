@@ -1,8 +1,47 @@
 {% if mode == "idle" %}
-  <div class="idle">
-    <div class="idle-clock" data-server-now="{{ now_ms }}">Routine Runner</div>
+  {% if children_stats %}
+  {# Ambient stats wall: each child's stars, best times, streaks and par times.
+     Purely informational — no controls, nothing to tap or expand. #}
+  <div class="split idle-board" data-server-now="{{ now_ms }}">
+    {% for cs in children_stats %}
+    <section class="col" style="--c: {{ cs.child.colour }}">
+      <div class="col-head">
+        {% if cs.child.avatar %}<span class="col-avatar" aria-hidden="true">{{ cs.child.avatar }}</span>{% endif %}
+        <span class="col-name">{{ cs.child.name }}</span>
+      </div>
+      <div class="idle-stats">
+        <div class="idle-stars">🏆 {{ cs.lifetime_stars }} <span>stars</span></div>
+        {% for r in cs.routines %}
+        {% set icon = {'morning': '☀️', 'bedtime': '🌙'}.get(r.name, '📋') %}
+        <div class="idle-routine">
+          <div class="idle-routine-head">
+            <span class="idle-routine-name"><span aria-hidden="true">{{ icon }}</span> {{ r.name }}</span>
+            <span class="idle-routine-meta">
+              {% if r.best_seconds %}<span title="best time">⏱ {{ r.best_seconds|mmss }}</span>{% endif %}
+              {% if r.streak_current %}<span title="day streak">🔥 {{ r.streak_current }}</span>{% endif %}
+            </span>
+          </div>
+          <ul class="idle-steps">
+            {% for s in r.steps %}
+            <li class="idle-step">
+              <span class="idle-step-icon" aria-hidden="true">{{ s.icon or '•' }}</span>
+              <span class="idle-step-title">{{ s.title }}</span>
+              <span class="idle-step-par">{{ s.par_seconds|mmss }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="idle" data-server-now="{{ now_ms }}">
+    <div class="idle-clock">Routine Runner</div>
     <p class="idle-sub">Waiting for a routine to start…</p>
   </div>
+  {% endif %}
 {% else %}
   <div class="split">
     {% for col in columns %}

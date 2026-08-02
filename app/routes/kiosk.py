@@ -131,6 +131,59 @@ def _lifetime_stars(conn: Connection, child_id: str) -> int:
     return row["total"]
 
 
+def _idle_stats(conn: Connection) -> list[dict]:
+    """Per-child ambient stats for the idle kiosk screen.
+
+    For each active child: their all-time star total, and per active routine
+    the best whole-routine time, current streak, and each task's par time.
+    Read-only by design — the idle screen is a wall display, not a toy, so
+    there are no controls and nothing to expand (spec §1 non-goals).
+    """
+    children = conn.execute(
+        "SELECT * FROM children WHERE active = 1 ORDER BY sort_order"
+    ).fetchall()
+    routines = conn.execute(
+        "SELECT * FROM routines WHERE active = 1 ORDER BY name"
+    ).fetchall()
+    out: list[dict] = []
+    for c in children:
+        cid = c["id"]
+        rstats: list[dict] = []
+        for rt in routines:
+            rec = conn.execute(
+                "SELECT best_seconds FROM records "
+                "WHERE child_id = ? AND routine_id = ? AND step_id IS NULL",
+                (cid, rt["id"]),
+            ).fetchone()
+            streak = conn.execute(
+                "SELECT current, best FROM streaks WHERE child_id = ? AND routine_id = ?",
+                (cid, rt["id"]),
+            ).fetchone()
+            steps = conn.execute(
+                "SELECT s.title, s.icon, p.par_seconds, rec.best_seconds "
+                "FROM steps s "
+                "LEFT JOIN pars p ON p.step_id = s.id AND p.child_id = ? "
+                "  AND p.superseded_at IS NULL "
+                "LEFT JOIN records rec ON rec.step_id = s.id AND rec.child_id = ? "
+                "  AND rec.routine_id = s.routine_id "
+                "WHERE s.routine_id = ? AND s.active = 1 AND s.kind = 'task' "
+                "ORDER BY s.position",
+                (cid, cid, rt["id"]),
+            ).fetchall()
+            rstats.append({
+                "name": rt["name"],
+                "best_seconds": rec["best_seconds"] if rec else None,
+                "streak_current": streak["current"] if streak else 0,
+                "steps": [dict(s) for s in steps],
+            })
+        out.append({
+            "child": dict(c),
+            "lifetime_stars": _lifetime_stars(conn, cid),
+            "routines": rstats,
+        })
+    return out
+
+
 def _column_context(conn: Connection, run, child_row, checked_in: dict) -> dict:
     """Build the render context for a single child's column.
 
@@ -217,7 +270,7 @@ def build_state(conn: Connection, config: Config) -> dict:
     run = _current_or_summary_run(conn)
     now = clock.now_ms()
     if run is None:
-        return {"mode": "idle", "now_ms": now}
+        return {"mode": "idle", "now_ms": now, "children_stats": _idle_stats(conn)}
 
     routine = routine_service.get_routine(conn, run.routine_id)
     columns = _columns_for_run(conn, run)
