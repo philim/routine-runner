@@ -139,6 +139,7 @@ def pause(
 @router.post("/runs/{run_id}/close")
 def close(
     run_id: str,
+    request: Request,
     parent: Device = Depends(require_parent),
     config: Config = Depends(get_config),
 ):
@@ -146,13 +147,17 @@ def close(
         run = run_service.get_run(conn, run_id)
         if run is None:
             raise HTTPException(status_code=404)
-        if run.state in ("closed", "abandoned"):
-            # already closed (e.g. auto-closed once every child finished, or a
-            # duplicate click) — idempotent no-op rather than a 500 (§8.3)
-            return {"ok": True, "already_closed": True}
-        run_service.close_run(conn, run_id)
+        already_closed = run.state in ("closed", "abandoned")
+        if not already_closed:
+            run_service.close_run(conn, run_id)
     bus.publish("kiosk", Event(name="state", data="update"))
-    return {"ok": True}
+    # nudge any other watching parent tab so its live view redirects too
+    bus.publish("parent", Event(name="state", data="update"))
+    # ending a run leaves nothing live to watch — send the parent who clicked
+    # "End run" straight back to the dashboard (idempotent for a double click).
+    if request.headers.get("HX-Request"):
+        return Response(status_code=200, headers={"HX-Redirect": "/"})
+    return {"ok": True, "already_closed": already_closed}
 
 
 @router.post("/segments/{segment_id}/skip")

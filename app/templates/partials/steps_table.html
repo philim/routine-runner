@@ -3,7 +3,7 @@
     <table class="table">
       <thead>
         <tr>
-          <th></th><th>Step</th><th>Kind</th><th>Floor / redo target</th><th></th><th></th>
+          <th></th><th>Step</th><th>Kind</th><th>Floor / redo target</th><th></th>
         </tr>
       </thead>
       <tbody data-sortable data-routine-id="{{ routine.id }}" data-reorder-url="/steps/reorder">
@@ -14,8 +14,10 @@
                     data-drag-handle title="Drag to reorder" aria-label="Drag to reorder">⠿</button>
           </td>
           <td>
+            {# Autosave: title/icon/target persist on change (blur or select),
+               so there's no Save button to hunt for on a phone. #}
             <form hx-post="/steps/{{ s.id }}" hx-target="#steps-table" hx-swap="outerHTML"
-                  class="flex flex-wrap gap-1 items-center">
+                  hx-trigger="change" class="flex flex-wrap gap-1 items-center">
               <input name="icon" value="{{ s.icon or '' }}" placeholder="🙂"
                      class="input input-bordered input-xs w-14 text-center">
               <input name="title" value="{{ s.title }}" required
@@ -31,7 +33,6 @@
                 {% endfor %}
               </select>
               {% endif %}
-              <button class="btn btn-xs" type="submit">Save</button>
             </form>
           </td>
           <td>
@@ -41,39 +42,51 @@
           </td>
           <td class="whitespace-nowrap">
             {% if s.kind == "task" %}
-            <span class="font-mono">{{ (s.floor_seconds // 60) }}:{{ '%02d' % (s.floor_seconds % 60) }}</span>
-            <form hx-post="/steps/{{ s.id }}/floor" hx-target="#steps-table" hx-swap="outerHTML" class="inline">
-              <input type="hidden" name="delta" value="-15">
-              <button class="btn btn-xs btn-ghost" type="submit" title="-15s">−</button>
-            </form>
-            <form hx-post="/steps/{{ s.id }}/floor" hx-target="#steps-table" hx-swap="outerHTML" class="inline">
-              <input type="hidden" name="delta" value="15">
-              <button class="btn btn-xs btn-ghost" type="submit" title="+15s">+</button>
-            </form>
+            <div class="flex items-center gap-1">
+              <form hx-post="/steps/{{ s.id }}/floor" hx-target="#steps-table" hx-swap="outerHTML" class="inline">
+                <input type="hidden" name="delta" value="-15">
+                <button class="btn btn-sm btn-outline w-9 text-lg leading-none" type="submit" title="-15s"
+                        aria-label="Decrease floor time">−</button>
+              </form>
+              <span class="font-mono w-12 text-center">{{ (s.floor_seconds // 60) }}:{{ '%02d' % (s.floor_seconds % 60) }}</span>
+              <form hx-post="/steps/{{ s.id }}/floor" hx-target="#steps-table" hx-swap="outerHTML" class="inline">
+                <input type="hidden" name="delta" value="15">
+                <button class="btn btn-sm btn-outline w-9 text-lg leading-none" type="submit" title="+15s"
+                        aria-label="Increase floor time">+</button>
+              </form>
+            </div>
             {% else %}
               {% set target = task_steps | selectattr("id", "equalto", s.on_reject_step_id) | first %}
               <span class="text-base-content/60">→ {{ target.title if target else "—" }}</span>
             {% endif %}
           </td>
-          <td class="whitespace-nowrap">
-            {% if s.kind == "task" %}
-            <form hx-post="/steps/{{ s.id }}/duplicate" hx-target="#steps-table" hx-swap="outerHTML" class="inline">
-              <button class="btn btn-xs btn-ghost" type="submit">Duplicate</button>
-            </form>
-            {% endif %}
-          </td>
           <td class="text-right whitespace-nowrap">
-            <form hx-post="/steps/{{ s.id }}/toggle" hx-target="#steps-table" hx-swap="outerHTML" class="inline">
-              <input type="hidden" name="active" value="{{ 'false' if s.active else 'true' }}">
-              <button class="btn btn-xs {{ 'btn-error btn-outline' if s.active else '' }}" type="submit">
-                {{ 'Disable' if s.active else 'Enable' }}
-              </button>
-            </form>
+            {# Duplicate / disable live under a kebab — rarely used, so they
+               shouldn't crowd the row. #}
+            <div class="dropdown dropdown-end">
+              <div tabindex="0" role="button" class="btn btn-xs btn-ghost" aria-label="Step actions">⋮</div>
+              <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box shadow-lg z-10 w-40 p-1">
+                {% if s.kind == "task" %}
+                <li>
+                  <button hx-post="/steps/{{ s.id }}/duplicate" hx-target="#steps-table" hx-swap="outerHTML">
+                    Duplicate
+                  </button>
+                </li>
+                {% endif %}
+                <li>
+                  <button class="{{ 'text-error' if s.active else '' }}"
+                          hx-post="/steps/{{ s.id }}/toggle" hx-target="#steps-table" hx-swap="outerHTML"
+                          hx-vals='{"active": "{{ 'false' if s.active else 'true' }}"}'>
+                    {{ 'Disable' if s.active else 'Enable' }}
+                  </button>
+                </li>
+              </ul>
+            </div>
           </td>
         </tr>
         {% else %}
         <tr>
-          <td colspan="6" class="text-center text-base-content/60 py-6">
+          <td colspan="5" class="text-center text-base-content/60 py-6">
             No steps yet — add one below.
           </td>
         </tr>

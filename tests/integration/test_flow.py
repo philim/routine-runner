@@ -242,6 +242,21 @@ def test_live_view_redirects_to_dashboard_once_run_ends(parent_client, kiosk_cli
     assert hx.headers["HX-Redirect"] == "/"
 
 
+def test_end_run_redirects_the_parent_to_the_dashboard(
+    parent_client, seeded, morning_routine_id
+):
+    """Clicking 'End run' (an htmx post) should bounce the parent back to the
+    dashboard via HX-Redirect, not just silently close."""
+    parent_client.post("/runs", data={"routine_id": morning_routine_id})
+    with instance_conn(seeded) as conn:
+        run = run_service.active_run(conn)
+    r = parent_client.post(f"/runs/{run.id}/close", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert r.headers["HX-Redirect"] == "/"
+    with instance_conn(seeded) as conn:
+        assert run_service.get_run(conn, run.id).state == "closed"
+
+
 def test_double_close_is_a_no_op_not_a_500(parent_client, seeded, morning_routine_id):
     parent_client.post("/runs", data={"routine_id": morning_routine_id})
     with instance_conn(seeded) as conn:

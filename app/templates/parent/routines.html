@@ -1,15 +1,33 @@
 {% extends "admin_base.html" %}
 {% block title %}Routines{% endblock %}
 {% block admin_content %}
+<style>
+  /* Disabled routines are hidden until the "All" filter is chosen. */
+  #routines-list .routine-disabled { display: none; }
+  #routines-list.show-disabled .routine-disabled { display: block; }
+</style>
 <h1 class="text-2xl sm:text-3xl font-bold mb-1">Routines</h1>
 <p class="text-base-content/60 mb-4">
   Add and edit steps here. Editing never affects a run already in progress —
   each run snapshots its step list the moment a child checks in.
 </p>
 
-<div class="space-y-3 mb-6">
+<div class="flex gap-4 mb-3 text-sm" role="radiogroup" aria-label="Which routines to show">
+  <label class="flex items-center gap-2 cursor-pointer">
+    <input type="radio" name="routine-filter" class="radio radio-sm" checked
+           onclick="document.getElementById('routines-list').classList.remove('show-disabled')">
+    Active
+  </label>
+  <label class="flex items-center gap-2 cursor-pointer">
+    <input type="radio" name="routine-filter" class="radio radio-sm"
+           onclick="document.getElementById('routines-list').classList.add('show-disabled')">
+    Show disabled
+  </label>
+</div>
+
+<div id="routines-list" class="space-y-3 mb-6">
   {% for r in routines %}
-  <div class="card bg-base-100 shadow-sm">
+  <div class="card bg-base-100 shadow-sm {{ 'routine-disabled' if not r.active else '' }}">
     <div class="card-body flex-row items-center justify-between py-3 flex-wrap gap-2">
       <div>
         <h2 class="card-title capitalize">
@@ -30,31 +48,27 @@
   </div>
   {% endfor %}
 
-  {# The "add" card mirrors a routine card: collapsed it's just a title and a
-     "+ New" button where Edit/Disable sit on a real routine. Clicking it
-     expands the name form in place. #}
+  {# The "add" card mirrors a routine card: collapsed the whole card is a
+     clickable target that expands the name form in place. #}
   <div class="card bg-base-100 shadow-sm" id="add-routine-card">
-    <div class="card-body py-3">
-      <div class="flex items-center justify-between flex-wrap gap-2">
-        <h2 class="card-title text-base-content/60">New routine</h2>
-        <button type="button" class="btn btn-sm btn-primary" data-add-open
-                onclick="this.classList.add('hidden'); const f = document.getElementById('add-routine-form'); f.classList.remove('hidden'); f.querySelector('input[name=name]').focus();">
-          + New
-        </button>
-      </div>
-      <form id="add-routine-form" method="post" action="/routines"
-            class="hidden flex flex-wrap gap-2 items-end mt-3">
-        <label class="form-control flex-1 min-w-[10rem]">
-          <span class="label-text">Name</span>
-          <input name="name" required placeholder="e.g. weekend" class="input input-bordered input-sm">
-        </label>
-        <button class="btn btn-sm btn-primary" type="submit">Add routine</button>
-        <button type="button" class="btn btn-sm btn-ghost"
-                onclick="const f = document.getElementById('add-routine-form'); f.classList.add('hidden'); f.reset(); document.querySelector('#add-routine-card [data-add-open]').classList.remove('hidden');">
-          Cancel
-        </button>
-      </form>
-    </div>
+    <button type="button" data-add-trigger
+            class="card-body flex-row items-center justify-between py-3 flex-wrap gap-2 w-full text-left cursor-pointer hover:bg-base-200 rounded-box transition-colors"
+            onclick="this.classList.add('hidden'); const f = document.getElementById('add-routine-form'); f.classList.remove('hidden'); f.querySelector('input[name=name]').focus();">
+      <h2 class="card-title text-base-content/60">New routine</h2>
+      <span class="btn btn-sm btn-primary pointer-events-none">+ New</span>
+    </button>
+    <form id="add-routine-form" method="post" action="/routines"
+          class="hidden card-body py-3 flex-row flex-wrap gap-2 items-end">
+      <label class="form-control flex-1 min-w-[10rem]">
+        <span class="label-text">Name</span>
+        <input name="name" required placeholder="e.g. weekend" class="input input-bordered input-sm">
+      </label>
+      <button class="btn btn-sm btn-primary" type="submit">Add routine</button>
+      <button type="button" class="btn btn-sm btn-ghost"
+              onclick="const f = document.getElementById('add-routine-form'); f.classList.add('hidden'); f.reset(); document.querySelector('#add-routine-card [data-add-trigger]').classList.remove('hidden');">
+        Cancel
+      </button>
+    </form>
   </div>
 </div>
 {% endblock %}

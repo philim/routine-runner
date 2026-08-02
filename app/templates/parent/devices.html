@@ -5,10 +5,12 @@
 
 <div class="space-y-3">
   {% for d in devices %}
-  <div class="card bg-base-100 shadow-sm">
-    <div class="card-body p-4">
+  {# One-row card like routines/steps: label + badges on the left, a kebab of
+     actions on the right. Editing the email expands a form below the row. #}
+  <div class="card bg-base-100 shadow-sm" id="device-{{ d.id }}">
+    <div class="card-body flex-row items-center justify-between py-3 gap-2 flex-wrap">
       <div class="flex flex-wrap items-center gap-2">
-        <span class="font-semibold text-lg">{{ d.label }}</span>
+        <span class="font-semibold">{{ d.label }}</span>
         <span class="badge {{ 'badge-primary' if d.role == 'parent' else 'badge-secondary' }}">{{ d.role }}</span>
         {% if d.revoked_at %}
           <span class="badge badge-error badge-outline">revoked</span>
@@ -18,33 +20,40 @@
       </div>
 
       {% if not d.revoked_at %}
-      <div class="flex flex-col gap-3 mt-3">
-        {% if d.role == 'parent' %}
-        {# Email login is a rarely-touched setting — tuck it behind a collapsible
-           so the card reads as just label + status + revoke at a glance. #}
-        <details class="text-sm">
-          <summary class="cursor-pointer link link-hover inline-flex items-center gap-1 w-fit">
-            Login email{% if d.email %} <span class="text-base-content/50">— {{ d.email }}</span>{% endif %}
-          </summary>
-          <form method="post" action="/devices/{{ d.id }}/email" class="flex items-end gap-2 mt-2">
-            <label class="form-control grow">
-              <span class="label-text text-xs">Login email</span>
-              <input type="email" name="email" value="{{ d.email or '' }}"
-                     placeholder="you@example.com" autocomplete="email"
-                     class="input input-bordered input-sm w-full">
-            </label>
-            <button class="btn btn-sm" type="submit">Save</button>
-          </form>
-        </details>
-        {% endif %}
-        <div>
-          <button class="btn btn-sm btn-error btn-outline"
-                  hx-post="/devices/{{ d.id }}/revoke" hx-confirm="Revoke {{ d.label }}?"
-                  hx-swap="none">Revoke</button>
-        </div>
+      <div class="dropdown dropdown-end">
+        <div tabindex="0" role="button" class="btn btn-sm btn-ghost" aria-label="Device actions">⋮</div>
+        <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box shadow-lg z-10 w-44 p-1">
+          {% if d.role == 'parent' %}
+          <li>
+            <button type="button"
+                    onclick="const b = document.getElementById('device-email-{{ d.id }}'); b.classList.toggle('hidden'); if(!b.classList.contains('hidden')) b.querySelector('input').focus();">
+              Edit login email
+            </button>
+          </li>
+          {% endif %}
+          <li>
+            <button class="text-error"
+                    hx-post="/devices/{{ d.id }}/revoke" hx-confirm="Revoke {{ d.label }}?"
+                    hx-swap="none">Revoke</button>
+          </li>
+        </ul>
       </div>
       {% endif %}
     </div>
+
+    {% if d.role == 'parent' and not d.revoked_at %}
+    <div id="device-email-{{ d.id }}" class="hidden px-4 pb-4 -mt-1">
+      <form method="post" action="/devices/{{ d.id }}/email" class="flex items-end gap-2">
+        <label class="form-control grow">
+          <span class="label-text text-xs">Login email</span>
+          <input type="email" name="email" value="{{ d.email or '' }}"
+                 placeholder="you@example.com" autocomplete="email"
+                 class="input input-bordered input-sm w-full">
+        </label>
+        <button class="btn btn-sm" type="submit">Save</button>
+      </form>
+    </div>
+    {% endif %}
   </div>
   {% else %}
   <div class="card bg-base-100 shadow-sm">
