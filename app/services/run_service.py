@@ -154,6 +154,24 @@ def _close_attempt(conn: Connection, segment_id: str, at: int) -> int:
     return total
 
 
+def active_attempt_timing(conn: Connection, segment_id: str) -> tuple[int | None, int]:
+    """Return ``(current_open_attempt_started_at, prior_closed_attempts_total_ms)``.
+
+    After a gate rejection a segment is reopened with a fresh attempt while its
+    ``first_started_at`` stays put (§6.4). The kiosk needs both halves: the
+    ring counts *accumulated* time — prior attempts plus the live one, with the
+    gate pause excluded — while the DONE debounce is measured against the
+    *current* attempt only. Those two diverge exactly on a redo.
+    """
+    started = _open_attempt_started_at(conn, segment_id)
+    prior = conn.execute(
+        "SELECT COALESCE(SUM(elapsed_seconds), 0) AS t FROM segment_attempts "
+        "WHERE segment_id = ? AND ended_at IS NOT NULL",
+        (segment_id,),
+    ).fetchone()["t"]
+    return started, prior * 1000
+
+
 def _activate_task(conn: Connection, segment_id: str, at: int) -> None:
     """Open a task segment: set active, stamp first_started_at once, open an attempt."""
     seg = _get_segment(conn, segment_id)

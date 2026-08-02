@@ -94,6 +94,46 @@ def test_reject_resumes_clock_and_scores_cumulative(seeded, morning_routine_id, 
         assert after.state == "gate_open"
 
 
+def test_redo_column_debounces_against_new_attempt(seeded, morning_routine_id, children, fc):
+    """After a gate rejection the kiosk column must debounce DONE against the
+    *new* attempt, not the segment's original first_started_at — otherwise the
+    button reads as available while the server still (correctly) debounces it.
+    The ring meanwhile counts accumulated time, excluding the gate pause."""
+    from app.routes.kiosk import build_column
+
+    child = children[0]["id"]
+    with instance_conn(seeded) as conn:
+        run = run_service.open_run(conn, morning_routine_id, "p")
+        gate = _to_gate(conn, run.id, child, fc, brush=50)  # brush attempt 1 = 50s
+        fc.advance(40)  # parent deliberates; clock stopped during the gate
+        target = verification_service.reject(conn, gate.id, None, "parent")
+
+        col = build_column(conn, child)
+        assert col["segment"].id == target.id
+        # debounce anchors on the fresh attempt (== now), not the old first start
+        assert col["debounce_until"] == fc.now_ms()
+        assert col["debounce_until"] > col["segment"].first_started_at
+        # ring counts the 50s already banked (gate's 40s excluded), so it starts
+        # 50s in the past, not at the raw attempt time
+        assert col["ring_started"] == fc.now_ms() - 50_000
+
+
+def test_kiosk_ring_is_numeric_for_every_child(seeded, morning_routine_id, children, fc):
+    """Both children get a visible numeric timer regardless of display_mode —
+    the old ring-only (age-5) mode no longer hides the second child's clock."""
+    from app.routes.kiosk import build_column
+
+    child = children[0]["id"]
+    with instance_conn(seeded) as conn:
+        conn.execute("UPDATE children SET display_mode='ring' WHERE id=?", (child,))
+        run = run_service.open_run(conn, morning_routine_id, "p")
+        cur = run_service.check_in(conn, run.id, child)
+        assert cur.state == "active"
+        col = build_column(conn, child)
+        assert col["ring"]["text_visible"] is True
+        assert col["ring"]["text"]  # a non-empty mm:ss readout
+
+
 def test_auto_approve_gives_zero_quality(seeded, morning_routine_id, children, fc):
     child = children[0]["id"]
     with instance_conn(seeded) as conn:

@@ -36,12 +36,23 @@
   // the next 250ms tick draws from the raw device clock. nowMs() keeps both
   // in agreement regardless of any drift.
   let clockSkewMs = 0;
+  let skewInitialized = false;
+  // Adopt a fresh skew on the first sync, or only when it moves more than this —
+  // a genuinely drifting device clock. Below the threshold we keep the existing
+  // skew so per-request network latency (which makes `data-server-now` arrive a
+  // little stale) doesn't yank the ring backward on every refresh. We don't need
+  // second precision and the clients aren't adversarial, so this slack is fine.
+  const SKEW_RESYNC_THRESHOLD_MS = 5000;
   function resyncClock() {
     const el = document.querySelector("[data-server-now]");
     if (!el) return;
     const serverNow = parseInt(el.dataset.serverNow, 10);
     if (!serverNow) return;
-    clockSkewMs = serverNow - Date.now();
+    const candidate = serverNow - Date.now();
+    if (!skewInitialized || Math.abs(candidate - clockSkewMs) > SKEW_RESYNC_THRESHOLD_MS) {
+      clockSkewMs = candidate;
+      skewInitialized = true;
+    }
   }
   function nowMs() {
     return Date.now() + clockSkewMs;
@@ -77,13 +88,13 @@
     document.querySelectorAll(".ring[data-started]").forEach((svg) => {
       const started = parseInt(svg.dataset.started, 10);
       const par = parseInt(svg.dataset.par, 10) || 0;
-      const numeric = svg.dataset.mode === "ring_numeric";
       if (!started) return;
       const elapsed = Math.max(0, Math.floor((now - started) / 1000));
 
       const arc = svg.querySelector(".ring-arc");
       const text = svg.querySelector(".ring-text");
       arc.style.strokeDasharray = CIRC;
+      text.style.display = "";  // both children always get a visible numeric timer
 
       if (par > 0) {
         const ratio = elapsed / par;
@@ -91,21 +102,13 @@
         // draining arc: full at start, empty at par; then it counts up over-par
         const frac = Math.max(0, Math.min(1, remaining / par));
         arc.style.strokeDashoffset = CIRC * (1 - frac);
-        const st = stateFor(ratio);
-        svg.setAttribute("data-state", st);
-        // Age 8 sees numbers (remaining, then +over); age 5 sees the arc only.
-        if (numeric) {
-          text.textContent = ratio <= 1.0 ? fmt(remaining) : "+" + fmt(elapsed - par);
-          text.style.display = "";
-        } else {
-          text.style.display = "none";
-        }
+        svg.setAttribute("data-state", stateFor(ratio));
+        text.textContent = ratio <= 1.0 ? fmt(remaining) : "+" + fmt(elapsed - par);
       } else {
         // run 1: no par — plain elapsed timer, neutral (spec §5.2)
         arc.style.strokeDashoffset = 0;
         svg.setAttribute("data-state", "none");
-        text.textContent = numeric ? fmt(elapsed) : "";
-        text.style.display = numeric ? "" : "none";
+        text.textContent = fmt(elapsed);
       }
     });
   }

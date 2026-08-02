@@ -74,12 +74,16 @@ def _mmss(total_seconds: int) -> str:
     return f"{m}:{s:02d}"
 
 
-def _ring_context(segment, display_mode: str, now_ms: int) -> dict:
-    """Countdown-ring render values for an active task segment's current instant."""
-    started = segment.first_started_at or now_ms
-    par = segment.par_seconds
-    elapsed = max(0, (now_ms - started) // 1000)
-    numeric = display_mode == "ring_numeric"
+def _ring_context(started_ms: int, par: int | None, now_ms: int) -> dict:
+    """Countdown-ring render values for an active task segment's current instant.
+
+    ``started_ms`` is the segment's *effective* start — shifted back by any time
+    already banked on earlier attempts (§6.4 redo) — so ``now - started`` is the
+    accumulated elapsed regardless of a gate pause. Both children always get a
+    numeric readout; the ring-only mode was dropped so each side has its own
+    visible timer.
+    """
+    elapsed = max(0, (now_ms - started_ms) // 1000)
 
     if par:
         ratio = elapsed / par
@@ -98,8 +102,8 @@ def _ring_context(segment, display_mode: str, now_ms: int) -> dict:
         "circumference": round(_RING_CIRC, 3),
         "dashoffset": round(dashoffset, 3),
         "state": state,
-        "text": text if numeric else "",
-        "text_visible": numeric,
+        "text": text,
+        "text_visible": True,
     }
 
 
@@ -199,6 +203,8 @@ def _column_context(conn: Connection, run, child_row, checked_in: dict) -> dict:
         "segment": None,
         "step": None,
         "ring": None,
+        "ring_started": None,
+        "debounce_until": None,
         "total": 0,
         "done": 0,
         "finished": False,
@@ -226,7 +232,17 @@ def _column_context(conn: Connection, run, child_row, checked_in: dict) -> dict:
         col["steps"] = _step_breakdown(conn, run.id, child_row["id"])
         col["lifetime_stars"] = _lifetime_stars(conn, child_row["id"])
     elif cur is not None and cur.state == "active":
-        col["ring"] = _ring_context(cur, child_row["display_mode"], clock.now_ms())
+        now = clock.now_ms()
+        attempt_started, prior_ms = run_service.active_attempt_timing(conn, cur.id)
+        attempt_started = attempt_started if attempt_started is not None else (
+            cur.first_started_at or now
+        )
+        # Ring counts accumulated time (prior attempts + live one, gate pause
+        # excluded); DONE debounces against the current attempt only. These two
+        # diverge after a gate rejection reopens the segment (§6.4).
+        col["ring_started"] = attempt_started - prior_ms
+        col["debounce_until"] = attempt_started
+        col["ring"] = _ring_context(col["ring_started"], cur.par_seconds, now)
     return col
 
 

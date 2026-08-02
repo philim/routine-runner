@@ -98,9 +98,8 @@
              harmless debounced tap. Starting correct means there's nothing to
              animate away from; kiosk.js's tick() just keeps it live from here. #}
           <svg class="ring" viewBox="0 0 120 120"
-               data-started="{{ col.segment.first_started_at }}"
+               data-started="{{ col.ring_started }}"
                data-par="{{ col.segment.par_seconds or 0 }}"
-               data-mode="{{ col.child.display_mode }}"
                data-state="{{ col.ring.state }}">
             <circle class="ring-track" cx="60" cy="60" r="52"></circle>
             <circle class="ring-arc" cx="60" cy="60" r="52"
@@ -122,7 +121,7 @@
       <input type="hidden" name="child_id" value="{{ col.child.id }}">
       <input type="hidden" name="segment_id" value="{{ col.segment.id }}">
       <button type="submit" class="done-btn"
-              data-debounce-until="{{ col.segment.first_started_at }}">DONE</button>
+              data-debounce-until="{{ col.debounce_until }}">DONE</button>
     </form>
   {% else %}
     <div class="waiting"><p>…</p></div>
