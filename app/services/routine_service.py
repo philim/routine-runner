@@ -262,3 +262,40 @@ def move_step(conn: Connection, step_id: str, direction: str) -> None:
 
     conn.execute("UPDATE steps SET position = ? WHERE id = ?", (new_step_pos, step.id))
     conn.execute("UPDATE steps SET position = ? WHERE id = ?", (new_neighbour_pos, neighbour["id"]))
+
+
+def reorder_steps(conn: Connection, routine_id: str, ordered_ids: list[str]) -> None:
+    """Set every step's position from a full ordering (spec §11 /steps/reorder).
+
+    Drag-to-reorder can drop a step anywhere at once, so — unlike the pairwise
+    ``move_step`` swap — the whole resulting order is validated against the gate
+    rules (§4): no gate may lead the routine, and every gate's on_reject target
+    must still be an earlier task. An invalid ordering is rejected atomically,
+    leaving positions untouched so the UI can snap the row back.
+    """
+    steps = all_steps(conn, routine_id)
+    existing_ids = {s.id for s in steps}
+    if set(ordered_ids) != existing_ids or len(ordered_ids) != len(steps):
+        raise ConfigError("ordered_ids must be a permutation of the routine's steps")
+
+    by_id = {s.id: s for s in steps}
+    new_position = {sid: pos for pos, sid in enumerate(ordered_ids)}
+
+    for pos, sid in enumerate(ordered_ids):
+        step = by_id[sid]
+        if pos == 0 and step.kind == "gate":
+            raise ConfigError("a routine cannot start with a gate")
+        if step.kind == "gate" and step.on_reject_step_id is not None:
+            target = by_id.get(step.on_reject_step_id)
+            if target is None or new_position[target.id] >= pos:
+                raise ConfigError("a gate's redo target must come before it")
+
+    # Two-phase write to dodge the (routine_id, position) collisions a direct
+    # reassignment would hit while positions are being permuted.
+    for sid in ordered_ids:
+        conn.execute(
+            "UPDATE steps SET position = position + ? WHERE id = ?",
+            (len(steps), sid),
+        )
+    for pos, sid in enumerate(ordered_ids):
+        conn.execute("UPDATE steps SET position = ? WHERE id = ?", (pos, sid))

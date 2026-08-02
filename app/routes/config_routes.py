@@ -122,6 +122,31 @@ def add_step(
     return _render_steps_partial(request, config, routine_id)
 
 
+@router.post("/steps/reorder")
+def reorder_steps(
+    request: Request,
+    routine_id: str = Form(...),
+    ordered_ids: str = Form(...),
+    parent: Device = Depends(require_parent),
+    config: Config = Depends(get_config),
+):
+    """Persist a drag-to-reorder drop (spec §11).
+
+    Registered before ``/steps/{step_id}`` so the literal path wins over the
+    parameterised one. ``ordered_ids`` is the comma-separated step id list in
+    its new order; an ordering that breaks the gate rules is rejected and we
+    re-render the unchanged table so the dragged row snaps back.
+    """
+    ids = [i for i in ordered_ids.split(",") if i]
+    with instance_conn(config) as conn:
+        try:
+            routine_service.reorder_steps(conn, routine_id, ids)
+        except routine_service.ConfigError:
+            return _render_steps_partial(request, config, routine_id)
+    _publish_kiosk_update(config)
+    return _render_steps_partial(request, config, routine_id)
+
+
 @router.post("/steps/{step_id}")
 def update_step(
     step_id: str,

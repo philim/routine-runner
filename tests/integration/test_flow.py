@@ -27,6 +27,35 @@ def fc(monkeypatch):
     return c
 
 
+def test_dashboard_redirects_to_live_when_a_run_is_active(
+    parent_client, seeded, morning_routine_id
+):
+    """A run in progress owns the screen — the dashboard 303s to its live view
+    instead of showing an interstitial alert."""
+    # no run yet → the dashboard renders the start screen
+    assert parent_client.get("/", follow_redirects=False).status_code == 200
+
+    parent_client.post("/runs", data={"routine_id": morning_routine_id})
+    with instance_conn(seeded) as conn:
+        run = run_service.active_run(conn)
+
+    home = parent_client.get("/", follow_redirects=False)
+    assert home.status_code == 303
+    assert home.headers["location"] == f"/runs/{run.id}/live"
+
+
+def test_starting_a_run_redirects_the_parent_into_the_live_view(
+    parent_client, seeded, morning_routine_id
+):
+    """Kicking off a routine drops the parent straight into the live view via
+    an HX-Redirect header (the rendered alert is the no-JS fallback)."""
+    r = parent_client.post("/runs", data={"routine_id": morning_routine_id})
+    assert r.status_code == 200
+    with instance_conn(seeded) as conn:
+        run = run_service.active_run(conn)
+    assert r.headers["HX-Redirect"] == f"/runs/{run.id}/live"
+
+
 def test_full_morning_run_over_http(parent_client, kiosk_client, seeded,
                                     morning_routine_id, children, fc):
     # parent starts the run
@@ -178,11 +207,16 @@ def test_completion_within_30s_is_silently_ignored(
     assert still.state == "active"
 
 
-def test_live_view_survives_run_closing(parent_client, kiosk_client, seeded,
-                                        morning_routine_id, children):
-    """Regression: /runs/{id}/live used to crash with a Jinja UndefinedError
-    once the run it names was no longer *the* active run (build_state()
-    returned mode="idle" with no `run` key at all)."""
+def test_live_view_redirects_to_dashboard_once_run_ends(parent_client, kiosk_client,
+                                                        seeded, morning_routine_id,
+                                                        children):
+    """A live view for an ended run bounces back to the dashboard rather than
+    rendering a dead final state. A plain navigation 303s to /; an htmx-driven
+    refresh (how the close reaches a watching parent, via SSE) gets an
+    HX-Redirect header so htmx does a full navigation instead of swapping.
+
+    Also a regression guard: /runs/{id}/live used to crash with a Jinja
+    UndefinedError once the run it names was no longer *the* active run."""
     a = children[0]["id"]
     parent_client.post("/runs", data={"routine_id": morning_routine_id})
     with instance_conn(seeded) as conn:
@@ -197,10 +231,15 @@ def test_live_view_survives_run_closing(parent_client, kiosk_client, seeded,
     with instance_conn(seeded) as conn:
         run_service.close_run(conn, run_id)
 
-    # the run is closed and no longer "active" — the live view must still render
-    live_after_close = parent_client.get(f"/runs/{run_id}/live")
-    assert live_after_close.status_code == 200
-    assert "closed" in live_after_close.text
+    # plain navigation to a stale/closed run → 303 back to the dashboard
+    plain = parent_client.get(f"/runs/{run_id}/live", follow_redirects=False)
+    assert plain.status_code == 303
+    assert plain.headers["location"] == "/"
+
+    # the SSE-triggered hx-get gets an HX-Redirect so htmx navigates fully
+    hx = parent_client.get(f"/runs/{run_id}/live", headers={"HX-Request": "true"})
+    assert hx.status_code == 200
+    assert hx.headers["HX-Redirect"] == "/"
 
 
 def test_double_close_is_a_no_op_not_a_500(parent_client, seeded, morning_routine_id):

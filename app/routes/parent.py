@@ -45,6 +45,10 @@ def dashboard(
     with instance_conn(config) as conn:
         routines = routine_service.list_routines(conn)
         run = run_service.active_run(conn)
+    # A run in progress owns the screen — send the parent straight to the live
+    # view rather than making them click through an interstitial alert.
+    if run is not None:
+        return RedirectResponse(f"/runs/{run.id}/live", status_code=303)
     return templates.TemplateResponse(
         request,
         "parent/dashboard.html",
@@ -66,14 +70,21 @@ def start_run(
             # a second tab/device raced to start a run — point at the one
             # that's actually running instead of a 500 (§8.3)
             existing = run_service.active_run(conn)
-            return templates.TemplateResponse(
+            resp = templates.TemplateResponse(
                 request, "partials/run_conflict.html", {"run": existing},
                 status_code=409,
             )
+            if existing is not None:
+                resp.headers["HX-Redirect"] = f"/runs/{existing.id}/live"
+            return resp
     bus.publish("kiosk", Event(name="state", data="update"))
-    return templates.TemplateResponse(
+    # kicking off a run drops the parent straight into the live view; the
+    # rendered alert is the no-JS fallback (§6.1).
+    resp = templates.TemplateResponse(
         request, "partials/run_started.html", {"run": run}
     )
+    resp.headers["HX-Redirect"] = f"/runs/{run.id}/live"
+    return resp
 
 
 @router.get("/runs/{run_id}/live")
@@ -90,6 +101,14 @@ def live(
         ctx = build_run_view(conn, run_id)
     if ctx is None:
         raise HTTPException(status_code=404)
+    if ctx["finished"]:
+        # the run has ended — there's nothing live to watch, so bounce back to
+        # the dashboard. When the run closes under a parent who's watching, the
+        # close arrives as an SSE-triggered hx-get; HX-Redirect turns that into
+        # a full navigation. A direct hit on a stale link 303s the same way.
+        if request.headers.get("HX-Request"):
+            return Response(status_code=200, headers={"HX-Redirect": "/"})
+        return RedirectResponse("/", status_code=303)
     ctx["request"] = request
     return templates.TemplateResponse(ctx["request"], "parent/run_live.html", ctx)
 
@@ -207,13 +226,37 @@ def pars(
 ):
     with instance_conn(config) as conn:
         rows = conn.execute(
-            "SELECT p.*, c.name AS child_name, s.title AS step_title "
-            "FROM pars p JOIN children c ON c.id = p.child_id "
+            "SELECT p.*, c.name AS child_name, s.title AS step_title, "
+            "s.icon AS step_icon, s.position AS step_position, "
+            "rt.id AS routine_id, rt.name AS routine_name "
+            "FROM pars p "
+            "JOIN children c ON c.id = p.child_id "
             "JOIN steps s ON s.id = p.step_id "
-            "WHERE p.superseded_at IS NULL ORDER BY c.name, s.position"
+            "JOIN routines rt ON rt.id = s.routine_id "
+            "WHERE p.superseded_at IS NULL "
+            "ORDER BY rt.name, s.position, c.sort_order, c.name"
         ).fetchall()
-        current = [dict(r) for r in rows]
-    return templates.TemplateResponse(request, "parent/pars.html", {"pars": current})
+    # Nest routine → step → child so the view mirrors how a parent thinks about
+    # pars (spec §12): one routine at a time, one step, each child's target.
+    groups: list[dict] = []
+    r_index: dict[str, dict] = {}
+    s_index: dict[tuple[str, str], dict] = {}
+    for row in rows:
+        r = dict(row)
+        rk = r["routine_id"]
+        routine = r_index.get(rk)
+        if routine is None:
+            routine = {"name": r["routine_name"], "steps": []}
+            r_index[rk] = routine
+            groups.append(routine)
+        sk = (rk, r["step_id"])
+        step = s_index.get(sk)
+        if step is None:
+            step = {"title": r["step_title"], "icon": r["step_icon"], "pars": []}
+            s_index[sk] = step
+            routine["steps"].append(step)
+        step["pars"].append(r)
+    return templates.TemplateResponse(request, "parent/pars.html", {"groups": groups})
 
 
 @router.post("/pars/{par_id}/freeze")

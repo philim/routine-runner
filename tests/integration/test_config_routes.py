@@ -72,6 +72,48 @@ def test_move_floor_toggle_and_duplicate_over_http(parent_client, seeded):
     assert "(copy)" in dup.text
 
 
+def test_reorder_steps_over_http(parent_client, seeded):
+    parent_client.post("/routines", data={"name": "weekend"})
+    with instance_conn(seeded) as conn:
+        routine = [r for r in routine_service.list_all_routines(conn) if r.name == "weekend"][0]
+        a = routine_service.add_step(conn, routine.id, "A", None, "task")
+        b = routine_service.add_step(conn, routine.id, "B", None, "task")
+        c = routine_service.add_step(conn, routine.id, "C", None, "task")
+
+    # drag C to the front: full ordering posted as a comma-separated id list
+    r = parent_client.post(
+        "/steps/reorder",
+        data={"routine_id": routine.id, "ordered_ids": f"{c.id},{a.id},{b.id}"},
+    )
+    assert r.status_code == 200
+    with instance_conn(seeded) as conn:
+        steps = routine_service.all_steps(conn, routine.id)
+    assert [s.title for s in steps] == ["C", "A", "B"]
+    assert [s.position for s in steps] == [0, 1, 2]
+
+
+def test_reorder_rejecting_a_gate_to_the_front_reverts(parent_client, seeded):
+    """An ordering that would lead the routine with a gate is invalid — the
+    server leaves positions untouched and re-renders, so the UI snaps back."""
+    parent_client.post("/routines", data={"name": "weekend"})
+    with instance_conn(seeded) as conn:
+        routine = [r for r in routine_service.list_all_routines(conn) if r.name == "weekend"][0]
+        task = routine_service.add_step(conn, routine.id, "Brush", None, "task")
+        gate = routine_service.add_step(
+            conn, routine.id, "Check", None, "gate", on_reject_step_id=task.id
+        )
+
+    r = parent_client.post(
+        "/steps/reorder",
+        data={"routine_id": routine.id, "ordered_ids": f"{gate.id},{task.id}"},
+    )
+    assert r.status_code == 200
+    with instance_conn(seeded) as conn:
+        steps = routine_service.all_steps(conn, routine.id)
+    # order unchanged: task still leads, gate still follows
+    assert [s.title for s in steps] == ["Brush", "Check"]
+
+
 def test_editing_routine_does_not_affect_a_run_already_in_progress(
     parent_client, kiosk_client, seeded, bedtime_routine_id, children
 ):

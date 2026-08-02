@@ -7,6 +7,10 @@
   <link rel="stylesheet" href="/static/vendor/daisyui.min.css">
 {% endblock %}
 
+{% block head_extra %}
+  <script src="/static/js/reorder.js" defer></script>
+{% endblock %}
+
 {% set _path = request.url.path if request else '/' %}
 {% macro navlink(href, label) %}
   <li><a href="{{ href }}"

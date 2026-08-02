@@ -18,21 +18,30 @@
       </div>
 
       {% if not d.revoked_at %}
-      <div class="flex flex-wrap items-end gap-3 mt-3">
+      <div class="flex flex-col gap-3 mt-3">
         {% if d.role == 'parent' %}
-        <form method="post" action="/devices/{{ d.id }}/email" class="flex items-end gap-2 grow">
-          <label class="form-control grow">
-            <span class="label-text text-xs">Login email</span>
-            <input type="email" name="email" value="{{ d.email or '' }}"
-                   placeholder="you@example.com" autocomplete="email"
-                   class="input input-bordered input-sm w-full">
-          </label>
-          <button class="btn btn-sm" type="submit">Save</button>
-        </form>
+        {# Email login is a rarely-touched setting — tuck it behind a collapsible
+           so the card reads as just label + status + revoke at a glance. #}
+        <details class="text-sm">
+          <summary class="cursor-pointer link link-hover inline-flex items-center gap-1 w-fit">
+            Login email{% if d.email %} <span class="text-base-content/50">— {{ d.email }}</span>{% endif %}
+          </summary>
+          <form method="post" action="/devices/{{ d.id }}/email" class="flex items-end gap-2 mt-2">
+            <label class="form-control grow">
+              <span class="label-text text-xs">Login email</span>
+              <input type="email" name="email" value="{{ d.email or '' }}"
+                     placeholder="you@example.com" autocomplete="email"
+                     class="input input-bordered input-sm w-full">
+            </label>
+            <button class="btn btn-sm" type="submit">Save</button>
+          </form>
+        </details>
         {% endif %}
-        <button class="btn btn-sm btn-error btn-outline"
-                hx-post="/devices/{{ d.id }}/revoke" hx-confirm="Revoke {{ d.label }}?"
-                hx-swap="none">Revoke</button>
+        <div>
+          <button class="btn btn-sm btn-error btn-outline"
+                  hx-post="/devices/{{ d.id }}/revoke" hx-confirm="Revoke {{ d.label }}?"
+                  hx-swap="none">Revoke</button>
+        </div>
       </div>
       {% endif %}
     </div>

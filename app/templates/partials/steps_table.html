@@ -6,22 +6,12 @@
           <th></th><th>Step</th><th>Kind</th><th>Floor / redo target</th><th></th><th></th>
         </tr>
       </thead>
-      <tbody>
+      <tbody data-sortable data-routine-id="{{ routine.id }}" data-reorder-url="/steps/reorder">
         {% for s in steps %}
-        <tr class="{{ 'opacity-50' if not s.active else '' }}">
+        <tr class="{{ 'opacity-50' if not s.active else '' }}" data-step-id="{{ s.id }}">
           <td class="whitespace-nowrap">
-            <form hx-post="/steps/{{ s.id }}/move" hx-target="#steps-table"
-                  hx-swap="outerHTML" class="inline">
-              <input type="hidden" name="direction" value="up">
-              <button class="btn btn-xs btn-ghost" type="submit" title="Move up"
-                      {{ 'disabled' if loop.first else '' }}>▲</button>
-            </form>
-            <form hx-post="/steps/{{ s.id }}/move" hx-target="#steps-table"
-                  hx-swap="outerHTML" class="inline">
-              <input type="hidden" name="direction" value="down">
-              <button class="btn btn-xs btn-ghost" type="submit" title="Move down"
-                      {{ 'disabled' if loop.last else '' }}>▼</button>
-            </form>
+            <button type="button" class="btn btn-xs btn-ghost cursor-grab select-none touch-none"
+                    data-drag-handle title="Drag to reorder" aria-label="Drag to reorder">⠿</button>
           </td>
           <td>
             <form hx-post="/steps/{{ s.id }}" hx-target="#steps-table" hx-swap="outerHTML"

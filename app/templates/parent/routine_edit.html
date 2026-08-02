@@ -12,12 +12,18 @@
 
 {% include "partials/steps_table.html" %}
 
-<div class="card bg-base-100 shadow-sm mt-4">
+<div class="card bg-base-100 shadow-sm mt-4" id="add-step-card">
   <div class="card-body">
-    <h2 class="card-title text-base">Add a step</h2>
-    <form hx-post="/routines/{{ routine.id }}/steps" hx-target="#steps-table" hx-swap="outerHTML"
+    <div class="flex items-center justify-between flex-wrap gap-2">
+      <h2 class="card-title text-base">Add a step</h2>
+      <button type="button" class="btn btn-sm btn-primary" data-add-open
+              onclick="this.classList.add('hidden'); const f = document.getElementById('add-step-form'); f.classList.remove('hidden'); f.querySelector('input[name=title]').focus();">
+        + New step
+      </button>
+    </div>
+    <form id="add-step-form" hx-post="/routines/{{ routine.id }}/steps" hx-target="#steps-table" hx-swap="outerHTML"
           hx-on::after-request="if(event.detail.successful) this.reset()"
-          class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          class="hidden grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
       <label class="form-control">
         <span class="label-text">Icon</span>
         <input name="icon" placeholder="🪥" class="input input-bordered input-sm">
@@ -47,8 +53,12 @@
           {% endfor %}
         </select>
       </label>
-      <div class="sm:col-span-2">
+      <div class="sm:col-span-2 flex gap-2">
         <button class="btn btn-primary btn-sm" type="submit">Add step</button>
+        <button type="button" class="btn btn-ghost btn-sm"
+                onclick="const f = document.getElementById('add-step-form'); f.classList.add('hidden'); f.reset(); document.querySelector('#add-step-card [data-add-open]').classList.remove('hidden');">
+          Cancel
+        </button>
       </div>
     </form>
   </div>

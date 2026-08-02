@@ -7,42 +7,49 @@
   Freeze a par or reset it when the real world changed.
 </p>
 
-<div class="overflow-x-auto card bg-base-100 shadow-sm">
-  <table class="table">
-    <thead>
-      <tr><th>Child</th><th>Step</th><th>Par</th><th>Basis</th><th>n</th><th></th></tr>
-    </thead>
-    <tbody>
-      {% for p in pars %}
-      <tr>
-        <td class="font-medium">{{ p.child_name }}</td>
-        <td>{{ p.step_title }}</td>
-        <td class="font-mono">{{ (p.par_seconds // 60) }}:{{ '%02d' % (p.par_seconds % 60) }}</td>
-        <td>
+{% for routine in groups %}
+<div class="card bg-base-100 shadow-sm mb-4">
+  <div class="card-body p-4 sm:p-5">
+    <h2 class="card-title capitalize">{{ routine.name }}</h2>
+
+    {% for step in routine.steps %}
+    <div class="mt-3 first:mt-1">
+      <div class="flex items-center gap-2 font-medium">
+        {% if step.icon %}<span aria-hidden="true">{{ step.icon }}</span>{% endif %}
+        <span>{{ step.title }}</span>
+      </div>
+
+      <div class="mt-1 sm:pl-6 divide-y divide-base-200">
+        {% for p in step.pars %}
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
+          <span class="font-medium min-w-[5rem]">{{ p.child_name }}</span>
+          <span class="font-mono">{{ (p.par_seconds // 60) }}:{{ '%02d' % (p.par_seconds % 60) }}</span>
           <span class="badge badge-ghost">{{ p.basis }}</span>
           {% if p.frozen %}<span title="frozen">🔒</span>{% endif %}
-        </td>
-        <td>{{ p.computed_from_n }}</td>
-        <td class="text-right whitespace-nowrap">
-          {% if not p.frozen %}
-          <button class="btn btn-xs" hx-post="/pars/{{ p.id }}/freeze" hx-swap="none">Freeze</button>
-          {% endif %}
-          <form hx-post="/pars/reset" hx-swap="none" class="inline">
-            <input type="hidden" name="child_id" value="{{ p.child_id }}">
-            <input type="hidden" name="step_id" value="{{ p.step_id }}">
-            <button class="btn btn-xs btn-error btn-outline" type="submit"
-                    hx-confirm="Reset this par and restart calibration?">Reset</button>
-          </form>
-        </td>
-      </tr>
-      {% else %}
-      <tr>
-        <td colspan="6" class="text-center text-base-content/60 py-6">
-          No pars yet — they appear after the first runs.
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+          <span class="text-base-content/50 text-sm">n={{ p.computed_from_n }}</span>
+          <span class="ml-auto whitespace-nowrap">
+            {% if not p.frozen %}
+            <button class="btn btn-xs" hx-post="/pars/{{ p.id }}/freeze" hx-swap="none">Freeze</button>
+            {% endif %}
+            <form hx-post="/pars/reset" hx-swap="none" class="inline">
+              <input type="hidden" name="child_id" value="{{ p.child_id }}">
+              <input type="hidden" name="step_id" value="{{ p.step_id }}">
+              <button class="btn btn-xs btn-error btn-outline" type="submit"
+                      hx-confirm="Reset this par and restart calibration?">Reset</button>
+            </form>
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
 </div>
+{% else %}
+<div class="card bg-base-100 shadow-sm">
+  <div class="card-body items-center text-center text-base-content/60 py-6">
+    <p>No pars yet — they appear after the first runs.</p>
+  </div>
+</div>
+{% endfor %}
 {% endblock %}

@@ -1,13 +1,8 @@
 {% extends "admin_base.html" %}
 {% block title %}Dashboard — Routine Runner{% endblock %}
 {% block admin_content %}
-{% if active_run %}
-  <div role="alert" class="alert alert-info shadow-md mb-6 flex-wrap">
-    <span>A <span class="badge badge-neutral align-middle">{{ active_run.state }}</span> run is in progress.</span>
-    <a class="btn btn-sm btn-primary" href="/runs/{{ active_run.id }}/live">Open live view</a>
-  </div>
-{% else %}
-
+{# A run in progress redirects to the live view in the route, so this page is
+   only ever the "start a routine" screen. #}
 <div class="mb-6">
   <h1 class="text-2xl sm:text-3xl font-bold">Start a routine</h1>
   <p class="text-base-content/60 mt-1">Kick off a routine, then kids check in at the kiosk.</p>
@@ -43,7 +38,6 @@
     </p>
   </div>
 </div>
-{% endif %}
 {% endif %}
 
 <div id="start-result" class="mt-4"></div>

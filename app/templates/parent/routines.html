@@ -28,25 +28,33 @@
       </div>
     </div>
   </div>
-  {% else %}
-  <div class="card bg-base-100 shadow-sm">
-    <div class="card-body items-center text-center text-base-content/60">
-      <p>No routines yet — add one below.</p>
-    </div>
-  </div>
   {% endfor %}
-</div>
 
-<div class="card bg-base-100 shadow-sm">
-  <div class="card-body">
-    <h2 class="card-title text-base">Add a routine</h2>
-    <form method="post" action="/routines" class="flex flex-wrap gap-2 items-end">
-      <label class="form-control flex-1 min-w-[10rem]">
-        <span class="label-text">Name</span>
-        <input name="name" required placeholder="e.g. weekend" class="input input-bordered input-sm">
-      </label>
-      <button class="btn btn-sm btn-primary" type="submit">Add routine</button>
-    </form>
+  {# The "add" card mirrors a routine card: collapsed it's just a title and a
+     "+ New" button where Edit/Disable sit on a real routine. Clicking it
+     expands the name form in place. #}
+  <div class="card bg-base-100 shadow-sm" id="add-routine-card">
+    <div class="card-body py-3">
+      <div class="flex items-center justify-between flex-wrap gap-2">
+        <h2 class="card-title text-base-content/60">New routine</h2>
+        <button type="button" class="btn btn-sm btn-primary" data-add-open
+                onclick="this.classList.add('hidden'); const f = document.getElementById('add-routine-form'); f.classList.remove('hidden'); f.querySelector('input[name=name]').focus();">
+          + New
+        </button>
+      </div>
+      <form id="add-routine-form" method="post" action="/routines"
+            class="hidden flex flex-wrap gap-2 items-end mt-3">
+        <label class="form-control flex-1 min-w-[10rem]">
+          <span class="label-text">Name</span>
+          <input name="name" required placeholder="e.g. weekend" class="input input-bordered input-sm">
+        </label>
+        <button class="btn btn-sm btn-primary" type="submit">Add routine</button>
+        <button type="button" class="btn btn-sm btn-ghost"
+                onclick="const f = document.getElementById('add-routine-form'); f.classList.add('hidden'); f.reset(); document.querySelector('#add-routine-card [data-add-open]').classList.remove('hidden');">
+          Cancel
+        </button>
+      </form>
+    </div>
   </div>
 </div>
 {% endblock %}
