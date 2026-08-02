@@ -384,6 +384,24 @@ def test_kiosk_summary_survives_run_closing_then_expires_after_grace_window(
     assert "Didn't check in" not in stale_board.text
 
 
+def test_run_with_no_finishers_returns_home_immediately(
+    parent_client, kiosk_client, seeded, morning_routine_id, children
+):
+    """Regression: a run nobody finished (here: nobody even checked in, then
+    the parent ends it) must not strand the kiosk on a "Didn't check in"
+    summary for the whole grace window — with nothing to celebrate it goes
+    straight back to the idle home wall."""
+    parent_client.post("/runs", data={"routine_id": morning_routine_id})
+    with instance_conn(seeded) as conn:
+        run = run_service.active_run(conn)
+    parent_client.post(f"/runs/{run.id}/close")  # ended before anyone finished
+
+    board = kiosk_client.get("/kiosk/state")
+    assert board.status_code == 200
+    assert "Didn't check in" not in board.text
+    assert "idle-board" in board.text  # home wall, not a summary
+
+
 def test_idle_kiosk_shows_each_childs_stars_and_par_times(
     parent_client, kiosk_client, seeded, bedtime_routine_id, children, fc
 ):

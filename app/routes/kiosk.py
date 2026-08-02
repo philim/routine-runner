@@ -255,7 +255,14 @@ def _current_or_summary_run(conn: Connection):
     closed = run_service.last_closed_run(conn)
     if closed is not None and closed.closed_at is not None:
         if clock.now_ms() - closed.closed_at < _SUMMARY_GRACE_MS:
-            return closed
+            # Only linger on a finished run's summary if a child actually
+            # completed a track — there's something to celebrate. A run where
+            # everyone was a no-show (or that was ended before anyone finished)
+            # has nothing to show but "Didn't check in", so we go straight back
+            # to the idle home wall instead of getting stuck on it.
+            rcs = run_service.run_children(conn, closed.id)
+            if any(rc.state == "completed" for rc in rcs):
+                return closed
     return None
 
 

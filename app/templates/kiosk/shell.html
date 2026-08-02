@@ -2,14 +2,19 @@
 {% block title %}Routine Runner — Kiosk{% endblock %}
 {% block body_class %}kiosk{% endblock %}
 {% block content %}
-<div id="kiosk-root"
-     hx-ext="sse"
-     sse-connect="/events/kiosk"
-     hx-get="/kiosk/state"
-     hx-trigger="sse:state, every 15s"
-     hx-target="#kiosk-board"
-     hx-swap="innerHTML">
-  <div id="kiosk-board">
+{# sse-connect lives on a wrapper that does nothing else: in htmx 1.x the SSE
+   extension throws noSSESourceError if the same element both opens the source
+   and carries an `sse:` trigger, because the trigger is registered before the
+   EventSource is attached. Keeping the connection on the parent and every
+   `sse:state` listener on descendants (this board + each column) makes the
+   source resolvable, so the kiosk updates in real time instead of only on the
+   15s reconnect-fallback poll (spec §8.2). #}
+<div id="kiosk-root" hx-ext="sse" sse-connect="/events/kiosk">
+  <div id="kiosk-board"
+       hx-get="/kiosk/state"
+       hx-trigger="sse:state, every 15s"
+       hx-target="#kiosk-board"
+       hx-swap="innerHTML">
     {% include "kiosk/board.html" %}
   </div>
 </div>
